@@ -60,6 +60,43 @@ Therapay helps 1099 therapists track and project their earnings.
 - Server-only vars (like `ANTHROPIC_API_KEY`) have no prefix
 - Never import env vars in client components
 
+## Auth
+- **Library:** Auth.js v5 (`next-auth@beta`) with Credentials provider
+- **Session cookie:** `authjs.session-token` (dev) / `__Secure-authjs.session-token` (prod) — Auth.js v5, not v4
+- **Route protection:** `proxy.ts` (Next.js 16 renamed `middleware.ts` → `proxy.ts`, export must be named `proxy`)
+- **Login flow:** client fetches `/api/auth/csrf`, then POSTs to `/api/auth/callback/credentials` with `{ email, password, csrfToken }` — this is the only approach confirmed to set the session cookie correctly
+- **Server actions cannot create sessions** — `signIn` with `redirect: false` in a server action does not set the session cookie; always use the callback endpoint via fetch
+- **Session reading:** `auth()` from `@/auth` in Server Components; `SessionProvider` from `next-auth/react` wraps the layout via `components/Providers.tsx`
+- **Fake accounts:** defined in `lib/accounts.ts` — sarah@therapay.dev, marcus@therapay.dev, jordan@therapay.dev (all use `password123`)
+- **Auth config:** `auth.ts` at project root; API handler at `app/api/auth/[...nextauth]/route.ts`
+- **`AUTH_SECRET`** must be set in `.env.local`
+
+## Proxy (Middleware)
+- File is `proxy.ts` at project root (Next.js 16 convention — do not name it `middleware.ts`)
+- Export must be named `proxy` (not `middleware`)
+- Checks for `authjs.session-token` cookie to determine if user is authenticated
+- Public paths: `/login`, `/api/auth`
+
+## Testing After Changes
+After any server-side change, verify with this sequence before calling it done:
+```bash
+# 1. Build check
+npm run build
+
+# 2. Start dev server with log capture
+npm run dev > /tmp/therapay-dev.log 2>&1 &
+
+# 3. Auth e2e test
+CSRF=$(curl -s -c /tmp/t.txt http://localhost:3000/api/auth/csrf | python3 -c "import sys,json; print(json.load(sys.stdin)['csrfToken'])")
+curl -s -X POST http://localhost:3000/api/auth/callback/credentials \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "email=sarah@therapay.dev&password=password123&csrfToken=$CSRF&callbackUrl=http://localhost:3000/" \
+  -b /tmp/t.txt -c /tmp/t.txt -L -w "\nHTTP:%{http_code}" -o /dev/null
+
+# 4. Check logs
+cat /tmp/therapay-dev.log | tail -20
+```
+
 ## Common Commands
 ```bash
 npm run dev       # Start dev server (localhost:3000)

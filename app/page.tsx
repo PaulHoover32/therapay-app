@@ -1,20 +1,26 @@
-import { sessions, profile } from "@/lib/seed-data";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { findAccount } from "@/lib/accounts";
 import Dashboard from "@/components/Dashboard";
+import NavBar from "@/components/NavBar";
 import { Toaster } from "@/components/ui/sonner";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  if (!session?.user?.email) redirect("/login");
+
+  const account = findAccount(session.user.email);
+  if (!account) redirect("/login");
+
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Therapay</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Welcome back, {profile.name}
-          </p>
+    <>
+      <NavBar name={account.profile.name} />
+      <main className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Dashboard initialSessions={account.sessions} profile={account.profile} />
         </div>
-        <Dashboard initialSessions={sessions} profile={profile} />
-      </div>
+      </main>
       <Toaster richColors position="bottom-right" />
-    </main>
+    </>
   );
 }

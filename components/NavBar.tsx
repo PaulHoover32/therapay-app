@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 interface Props {
   name: string;
@@ -12,14 +13,8 @@ export default function NavBar({ name }: Props) {
   const router = useRouter();
 
   async function handleSignOut() {
-    // Get CSRF token, then POST to Auth.js signout endpoint
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
-    await fetch("/api/auth/signout", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ csrfToken }),
-    });
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   }

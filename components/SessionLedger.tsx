@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Session } from "@/lib/seed-data";
+import { Session } from "@/lib/types";
 import {
   Table,
   TableBody,

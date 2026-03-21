@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Session, PaymentOption, AppointmentType, SessionCode } from "@/lib/seed-data";
+import { Session, PaymentOption, AppointmentType, SessionCode } from "@/lib/types";
 import {
   Dialog,
   DialogContent,

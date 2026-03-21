@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Session, TherapistProfile } from "@/lib/seed-data";
+import { Session, TherapistProfile } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";

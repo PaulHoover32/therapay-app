@@ -17,7 +17,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { format, parseISO, startOfYear, endOfYear, eachWeekOfInterval } from "date-fns";
-import { Session, TherapistProfile } from "@/lib/seed-data";
+import { Session, TherapistProfile } from "@/lib/types";
 
 interface Props {
   sessions: Session[];

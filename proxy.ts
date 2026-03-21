@@ -1,28 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr"
+import { type NextRequest, NextResponse } from "next/server"
 
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+const PUBLIC_PATHS = ["/login"]
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
-  // Auth.js v5 stores the session in authjs.session-token (dev) or
-  // __Secure-authjs.session-token (prod/HTTPS)
-  const sessionToken =
-    request.cookies.get("authjs.session-token") ??
-    request.cookies.get("__Secure-authjs.session-token");
+  let supabaseResponse = NextResponse.next({ request })
 
-  if (!sessionToken && !isPublic) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user && !isPublic) {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  if (sessionToken && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+  if (user && pathname === "/login") {
+    return NextResponse.redirect(new URL("/", request.url))
   }
 
-  return NextResponse.next();
+  return supabaseResponse
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)" ],
-};
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+}

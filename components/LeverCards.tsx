@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Session, TherapistProfile } from "@/lib/seed-data";
+import { Session, TherapistProfile } from "@/lib/types";
 import { parseISO, subWeeks, isAfter } from "date-fns";
 import { cn } from "@/lib/utils";
 

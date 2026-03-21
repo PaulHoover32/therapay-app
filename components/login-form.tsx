@@ -17,32 +17,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 const TEST_ACCOUNTS = [
   { email: "sarah@therapay.dev", name: "Dr. Sarah Chen", description: "High earner · $120k goal · mixed payers" },
   { email: "marcus@therapay.dev", name: "Marcus Rivera, LCSW", description: "Mid-career · $85k goal · insurance-heavy" },
   { email: "jordan@therapay.dev", name: "Jordan Kim, LPC", description: "Building practice · $60k goal · self-pay" },
 ];
-
-async function signInWithCredentials(email: string, password: string): Promise<string | null> {
-  // Auth.js requires a CSRF token for the credentials callback
-  const csrfRes = await fetch("/api/auth/csrf");
-  const { csrfToken } = await csrfRes.json();
-
-  const body = new URLSearchParams({ email, password, csrfToken, callbackUrl: "/" });
-  const res = await fetch("/api/auth/callback/credentials", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    redirect: "follow",
-  });
-
-  // On failure Auth.js redirects to /login?error=..., on success to /
-  if (res.url.includes("error") || res.url.includes("/login")) {
-    return "Invalid email or password.";
-  }
-  return null;
-}
 
 export function LoginForm({
   className,
@@ -59,9 +40,13 @@ export function LoginForm({
     setError("");
     setLoading(true);
     try {
-      const err = await signInWithCredentials(email, password);
-      if (err) {
-        setError(err);
+      const supabase = createSupabaseBrowserClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (authError) {
+        setError("Invalid email or password.");
       } else {
         router.push("/");
         router.refresh();

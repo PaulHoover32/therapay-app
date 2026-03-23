@@ -1,21 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Session, TherapistProfile } from "@/lib/types";
+import { Session, SessionInput, TherapistProfile, ReferencePayer, ReferenceSessionCode } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ChevronDown, ChevronUp, UserCircle, PlusCircle, Target } from "lucide-react";
+import { UserCircle, PlusCircle, Target } from "lucide-react";
 import EarningsChart from "./EarningsChart";
 import LeverCards from "./LeverCards";
 import SessionLedger from "./SessionLedger";
-import SessionForm from "./SessionForm";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface Props {
   initialSessions: Session[];
   profile: TherapistProfile;
+  payers: ReferencePayer[];
+  sessionCodes: ReferenceSessionCode[];
 }
 
 function EmptyState() {
@@ -57,7 +58,7 @@ function EmptyState() {
             </div>
             <div>
               <p className="font-medium text-sm">Add your first session</p>
-              <p className="text-xs text-muted-foreground">Use the form below the chart.</p>
+              <p className="text-xs text-muted-foreground">Use the Add Session button in the session ledger.</p>
             </div>
           </div>
         </div>
@@ -66,26 +67,43 @@ function EmptyState() {
   );
 }
 
-export default function Dashboard({ initialSessions, profile }: Props) {
+export default function Dashboard({ initialSessions, profile, payers, sessionCodes }: Props) {
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
-  const [formOpen, setFormOpen] = useState(false);
 
   const isEmpty = sessions.length === 0;
 
-  function handleAdd(session: Session) {
-    setSessions((prev) =>
-      [...prev, session].sort(
-        (a, b) => new Date(b.session_datetime).getTime() - new Date(a.session_datetime).getTime()
-      )
-    );
+  async function handleAdd(input: SessionInput) {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from("sessions")
+      .insert({ ...input, therapist_id: profile.id })
+      .select("id, created_at, updated_at, session_datetime, amount, payment_option, session_code, appointment_type, state, session_descriptor, session_duration, payer")
+      .single();
+    if (error) { toast.error("Failed to save session."); return; }
+    setSessions((prev) => [data as Session, ...prev]);
+    toast.success("Session saved.");
   }
 
-  function handleUpdate(updated: Session) {
-    setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+  async function handleUpdate(updated: Session) {
+    const supabase = createSupabaseBrowserClient();
+    const { session_datetime, amount, payment_option, session_code, appointment_type, state, session_descriptor, session_duration, payer } = updated;
+    const { data, error } = await supabase
+      .from("sessions")
+      .update({ session_datetime, amount, payment_option, session_code, appointment_type, state, session_descriptor, session_duration, payer })
+      .eq("id", updated.id)
+      .select("id, created_at, updated_at, session_datetime, amount, payment_option, session_code, appointment_type, state, session_descriptor, session_duration, payer")
+      .single();
+    if (error) { toast.error("Failed to update session."); return; }
+    setSessions((prev) => prev.map((s) => (s.id === data.id ? data as Session : s)));
+    toast.success("Session updated.");
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("sessions").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete session."); return; }
     setSessions((prev) => prev.filter((s) => s.id !== id));
+    toast.success("Session deleted.");
   }
 
   if (isEmpty) {
@@ -94,7 +112,6 @@ export default function Dashboard({ initialSessions, profile }: Props) {
 
   return (
     <div className="space-y-8">
-      {/* Hero Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Earnings Overview</CardTitle>
@@ -104,51 +121,18 @@ export default function Dashboard({ initialSessions, profile }: Props) {
         </CardContent>
       </Card>
 
-      {/* Financial Lever Cards */}
       <LeverCards sessions={sessions} profile={profile} />
 
       <Separator />
 
-      {/* Session Input Form */}
-      <Collapsible open={formOpen} onOpenChange={setFormOpen}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Add Session</h2>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-1">
-              {formOpen ? (
-                <>Collapse <ChevronUp className="w-4 h-4" /></>
-              ) : (
-                <>Expand <ChevronDown className="w-4 h-4" /></>
-              )}
-            </Button>
-          </CollapsibleTrigger>
-        </div>
-        <CollapsibleContent>
-          <Card>
-            <CardContent className="pt-4">
-              <SessionForm sessions={sessions} onAdd={handleAdd} />
-            </CardContent>
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Session Ledger */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">
-            Session Ledger
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({sessions.length} sessions)
-            </span>
-          </h2>
-        </div>
-        <SessionLedger
-          sessions={sessions}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onAdd={handleAdd}
-        />
-      </div>
+      <SessionLedger
+        sessions={sessions}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        onAdd={handleAdd}
+        payers={payers}
+        sessionCodes={sessionCodes}
+      />
     </div>
   );
 }

@@ -111,6 +111,38 @@ curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_ty
 cat /tmp/therapay-dev.log | tail -20
 ```
 
+## DB Testing Protocol
+After any migration that touches schema or RLS, run these checks before calling it done:
+
+**1. Verify migration applied**
+Use `mcp__supabase__execute_sql` to confirm new columns/policies exist.
+
+**2. Audit RLS policies**
+```sql
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = '<table>' AND schemaname = 'public'
+ORDER BY cmd;
+```
+Every policy that gates on user identity must trace back to `auth.uid()` via a stable FK — never via email or other mutable fields.
+
+**3. Smoke test CRUD via SQL** (bypasses RLS — confirms schema only)
+Run INSERT → UPDATE → DELETE with a known `therapist_id`. Verify `created_at` and `updated_at` are populated by the DB.
+
+**4. Auth smoke test**
+```bash
+curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"sarah@therapay.dev","password":"password123"}' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
+```
+
+**5. UI smoke test** (validates RLS with real JWT)
+- Add a session → reload → verify it persists
+- Edit the session → reload → verify change persists and `updated_at` updated
+- Delete the session → verify it's gone
+
 ## Common Commands
 ```bash
 npm run dev       # Start dev server (localhost:3000)

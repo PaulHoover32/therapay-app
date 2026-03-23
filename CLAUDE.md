@@ -19,6 +19,21 @@
 ## App Overview
 Therapay helps 1099 therapists track and project their earnings.
 
+## Navigation
+- **Sidebar:** shadcn `Sidebar` component, icon-rail style, `collapsible="icon"` (collapsed by default, expands on hover/toggle)
+- **`/dashboard` is complete — do not modify it**
+- Nav items: Dashboard (`/dashboard`), Intelligence (`/intelligence`), Planner (`/planner`); Profile (`/profile`) pinned to sidebar bottom
+- Active route highlighted via `usePathname()`
+
+## Data Layer
+- **Shared data access:** always go through `lib/data.ts` — never fetch directly from pages
+- `lib/seed-data.ts` holds mock data; `lib/data.ts` exports `getTherapistProfile()`, `getSessionLogs()`, `getSessionById(id)`
+- Dashboard fetches live from Supabase directly (do not change it); other pages use `lib/data.ts`
+
+## State Management
+- **Zustand** stores are domain-scoped — one slice per route (e.g., `store/intelligence.ts`, `store/planner.ts`)
+- Pages are modular and independently navigable by design — avoid cross-page state
+
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript (strict)

@@ -34,6 +34,17 @@ Therapay helps 1099 therapists track and project their earnings.
 - **Zustand** stores are domain-scoped — one slice per route (e.g., `store/intelligence.ts`, `store/planner.ts`)
 - Pages are modular and independently navigable by design — avoid cross-page state
 
+## Global Chat System
+- **Do not add** the chat button or panel to individual pages — they live in `app/layout.tsx` only
+- `components/chat/ChatButton.tsx` — floating button (bottom-right, z-50), toggles panel
+- `components/chat/ChatPanel.tsx` — 400×560px fixed panel, uses Vercel AI SDK `useChat`
+- `components/chat/starters.ts` — conversation starter strings
+- `store/chatStore.ts` — Zustand store for `isOpen` / open / close / toggle
+- **API route:** `app/api/chat/route.ts` — `streamText` with `claude-sonnet-4-6`, one tool: `saveGoals`
+- `saveGoals` tool upserts to the Supabase `goals` table (deactivates prior goal for same user+year first)
+- Therapist context (YTD revenue, velocity, weeks remaining, active goal) is fetched via `getTherapistContext()` in `lib/data.ts`
+- Goals table: `id, user_id (→ auth.users), goal_year, annual_income_target, target_weeks_worked, optimization_preference, target_weekly_sessions, target_avg_payout, is_active, created_at`
+
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript (strict)
@@ -157,6 +168,49 @@ curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_ty
 - Add a session → reload → verify it persists
 - Edit the session → reload → verify change persists and `updated_at` updated
 - Delete the session → verify it's gone
+
+## Chat Testing Protocol
+
+After any change to `app/api/chat/route.ts`, `lib/data.ts` (context), or the `goals` table:
+
+**1. API smoke test** (curl — confirms route is reachable and returns a stream)
+```bash
+# Get a session token first
+TOKEN=$(curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"sarah@therapay.dev","password":"password123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Hit the chat route with a UIMessage-format payload
+curl -s -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -H "Cookie: sb-pbijbpfgmcbtipuebsnn-auth-token-0=$TOKEN" \
+  -d '{"messages":[{"id":"test1","role":"user","parts":[{"type":"text","text":"How is my practice performing?"}]}]}' \
+  | head -20
+```
+Expected: SSE stream with `data:` lines containing text chunks. A 401 means the session cookie isn't being set correctly.
+
+**2. Key behaviors to verify via Puppeteer UI test**
+- Open chat panel → conversation starters appear
+- Click a starter → message appears in thread, loading dots show, Claude responds
+- Type a custom message → send → Claude responds
+- Trigger goal-setting flow: click "Model scenarios and set goals" → answer Claude's questions → confirm → verify a row appears in the `goals` table
+- Verify `saveGoals` tool call persists: run `SELECT * FROM goals WHERE user_id = '<sarah_user_id>'` after confirming a goal
+
+**3. Verify `convertToModelMessages` is applied in route**
+The v6 `useChat` client sends `UIMessage[]` (parts-based). The `streamText` function expects `ModelMessage[]`.
+`app/api/chat/route.ts` must call `await convertToModelMessages(messages)` before passing to `streamText` — without it, Claude never responds and the server logs `AI_InvalidPromptError`.
+
+**4. Goals table smoke test after saveGoals**
+```sql
+SELECT id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, optimization_preference, is_active
+FROM goals
+WHERE user_id = (SELECT id FROM auth.users WHERE email = 'sarah@therapay.dev')
+ORDER BY created_at DESC
+LIMIT 3;
+```
+Confirm: only one row has `is_active = true` per `goal_year`. Prior goals should have `is_active = false`.
 
 ## Common Commands
 ```bash

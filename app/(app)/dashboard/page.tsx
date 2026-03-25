@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Session, TherapistProfile, ReferencePayer, ReferenceSessionCode } from "@/lib/types";
 import Dashboard from "@/components/Dashboard";
-import NavBar from "@/components/NavBar";
 import { Toaster } from "@/components/ui/sonner";
 
 export default async function Home() {
@@ -38,7 +37,6 @@ export default async function Home() {
 
   return (
     <>
-      <NavBar name={therapist.name} />
       <main className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Dashboard

@@ -40,3 +40,32 @@ export interface ReferenceSessionCode {
   session_duration: number;
   description: string | null;
 }
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  goal_year: number;
+  annual_income_target: number;
+  target_weekly_sessions: number;
+  target_avg_payout: number;
+  is_active: boolean;
+  last_modified_at: string;
+  last_modified_by: "user" | "ai";
+  created_at: string;
+}
+
+export interface Recommendation {
+  id: string;
+  user_id: string;
+  goal_year: number;
+  created_at: string;
+  annual_income_target: number;
+  target_weekly_sessions: number;
+  target_avg_payout: number;
+  summary: string;
+  reasoning: string;
+  ytd_revenue_at_time: number;
+  avg_weekly_sessions_at_time: number;
+  avg_payout_at_time: number;
+  weeks_remaining_at_input: number;
+}

@@ -39,11 +39,30 @@ Therapay helps 1099 therapists track and project their earnings.
 - `components/chat/ChatButton.tsx` — floating button (bottom-right, z-50), toggles panel
 - `components/chat/ChatPanel.tsx` — 400×560px fixed panel, uses Vercel AI SDK `useChat`
 - `components/chat/starters.ts` — conversation starter strings
-- `store/chatStore.ts` — Zustand store for `isOpen` / open / close / toggle
+- `store/chatStore.ts` — Zustand store: `isOpen`, `currentSessionId`, `hasRecommendation` + open/close/toggle/createSession/setHasRecommendation/clearSession
 - **API route:** `app/api/chat/route.ts` — `streamText` with `claude-sonnet-4-6`, one tool: `saveGoals`
-- `saveGoals` tool upserts to the Supabase `goals` table (deactivates prior goal for same user+year first)
+- `saveGoals` tool writes three tables in order: `recommendations` (insert) → `goals` (deactivate old + insert new) → `chat_sessions` (update recommendation_id)
+- `sessionId` is passed from the client in the request body alongside `messages`; the API route uses it to link the session to the recommendation
 - Therapist context (YTD revenue, velocity, weeks remaining, active goal) is fetched via `getTherapistContext()` in `lib/data.ts`
-- Goals table: `id, user_id (→ auth.users), goal_year, annual_income_target, target_weeks_worked, optimization_preference, target_weekly_sessions, target_avg_payout, is_active, created_at`
+
+### Supabase Tables
+- **goals:** `id, user_id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, is_active, last_modified_at, last_modified_by ('user'|'ai'), created_at` — one active row per user per year
+- **recommendations:** append-only, never updated after insert — `id, user_id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, summary, reasoning, ytd_revenue_at_time, avg_weekly_sessions_at_time, avg_payout_at_time, weeks_remaining_at_input, created_at`
+- **chat_sessions:** `id, user_id, created_at, recommendation_id (nullable → recommendations.id), messages (jsonb [])` — sessions without a saveGoals outcome are deleted on chat close (client-side fire-and-forget via chatStore `close()`)
+
+### Session Lifecycle
+1. Chat open → nothing written to DB yet
+2. First user message → `chatStore.createSession()` inserts a `chat_sessions` row; id stored in `currentSessionId`
+3. `sessionId` sent in every request body so server can update `recommendation_id` after saveGoals
+4. Chat close without recommendation → `chatStore.close()` deletes the session row (background, no await)
+5. saveGoals fires → server updates `chat_sessions.recommendation_id`; client should call `setHasRecommendation()` to prevent delete on close
+
+## /planner Page
+- `app/(app)/planner/page.tsx` — server component, fetches `getActiveGoal` + `getRecommendations` and passes to client components
+- `components/planner/GoalCard.tsx` — displays active goal with inline edit (3 fields); saves with `last_modified_by: 'user'`; shows toast on success
+- `components/planner/RecommendationList.tsx` — renders list of RecommendationCard; empty state if none
+- `components/planner/RecommendationCard.tsx` — date, context line, summary, 3 stats, collapsible reasoning, Apply button
+- `components/planner/ApplyRecommendationDialog.tsx` — two-column comparison dialog; on confirm upserts goals table with `last_modified_by: 'ai'`
 
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router)

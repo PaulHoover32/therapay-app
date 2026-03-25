@@ -1,4 +1,4 @@
-import { TherapistProfile, Session } from "@/lib/types";
+import { TherapistProfile, Session, Goal, Recommendation } from "@/lib/types";
 import { seedProfile, seedSessions } from "@/lib/seed-data";
 import { SupabaseClient } from "@supabase/supabase-js";
 
@@ -106,4 +106,32 @@ export async function getTherapistContext(
     weeksRemainingInYear,
     existingGoal: goal ?? null,
   };
+}
+
+export async function getActiveGoal(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Goal | null> {
+  const { data } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("goal_year", new Date().getFullYear())
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
+export async function getRecommendations(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Recommendation[]> {
+  const { data } = await supabase
+    .from("recommendations")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
 }

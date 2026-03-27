@@ -21,11 +21,9 @@ export default async function ProfilePage() {
       {/* Financial Targets */}
       <section className="rounded-lg border border-dashed border-border p-6">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">Financial Targets</p>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>Annual goal: ${profile.annual_goal.toLocaleString()}</p>
-          <p>Target weekly sessions: {profile.target_weekly_sessions}</p>
-          <p>Target avg payout — coming soon</p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Annual income target · Target weekly sessions · Target avg payout — managed in <a href="/planner" className="underline">Planner</a>
+        </p>
       </section>
 
       {/* Account */}

@@ -33,7 +33,7 @@ export default function RecommendationCard({ recommendation: rec, currentGoal }:
               <p className="text-sm font-medium">{date}</p>
               <p className="text-xs text-muted-foreground">
                 Based on ${rec.ytd_revenue_at_time.toLocaleString()} YTD ·{" "}
-                {rec.avg_weekly_sessions_at_time.toFixed(1)} sessions/week ·{" "}
+                {rec.avg_weekly_hours_at_time.toFixed(1)} hrs/week ·{" "}
                 ${rec.avg_payout_at_time.toFixed(0)} avg payout ·{" "}
                 {rec.weeks_remaining_at_input} weeks remaining
               </p>
@@ -52,8 +52,8 @@ export default function RecommendationCard({ recommendation: rec, currentGoal }:
               <p className="text-base font-semibold">${rec.annual_income_target.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Weekly Sessions</p>
-              <p className="text-base font-semibold">{rec.target_weekly_sessions}</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Weekly Hours</p>
+              <p className="text-base font-semibold">{rec.target_weekly_hours.toFixed(1)} hrs</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-0.5">Avg Payout</p>

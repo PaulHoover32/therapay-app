@@ -27,8 +27,8 @@ Therapay helps 1099 therapists track and project their earnings.
 
 ## Data Layer
 - **Shared data access:** always go through `lib/data.ts` — never fetch directly from pages
-- `lib/seed-data.ts` holds mock data; `lib/data.ts` exports `getTherapistProfile()`, `getSessionLogs()`, `getSessionById(id)`
-- Dashboard fetches live from Supabase directly (do not change it); other pages use `lib/data.ts`
+- `lib/seed-data.ts` holds mock data; `lib/data.ts` exports `getTherapistProfile()`, `getSessionLogs()`, `getSessionById(id)`, `getActiveGoal()`, `getRecommendations()`, `getTherapistContext()`
+- Dashboard fetches sessions/payers/sessionCodes directly from Supabase, but uses `getActiveGoal()` from `lib/data.ts` for goal data; other pages use `lib/data.ts` throughout
 
 ## State Management
 - **Zustand** stores are domain-scoped — one slice per route (e.g., `store/intelligence.ts`, `store/planner.ts`)
@@ -46,8 +46,8 @@ Therapay helps 1099 therapists track and project their earnings.
 - Therapist context (YTD revenue, velocity, weeks remaining, active goal) is fetched via `getTherapistContext()` in `lib/data.ts`
 
 ### Supabase Tables
-- **goals:** `id, user_id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, is_active, last_modified_at, last_modified_by ('user'|'ai'), created_at` — one active row per user per year
-- **recommendations:** append-only, never updated after insert — `id, user_id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, summary, reasoning, ytd_revenue_at_time, avg_weekly_sessions_at_time, avg_payout_at_time, weeks_remaining_at_input, created_at`
+- **goals:** `id, user_id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, is_active, last_modified_at, last_modified_by ('user'|'ai'), created_at` — one active row per user per year
+- **recommendations:** append-only, never updated after insert — `id, user_id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, summary, reasoning, ytd_revenue_at_time, avg_weekly_hours_at_time, avg_payout_at_time, weeks_remaining_at_input, created_at`
 - **chat_sessions:** `id, user_id, created_at, recommendation_id (nullable → recommendations.id), messages (jsonb [])` — sessions without a saveGoals outcome are deleted on chat close (client-side fire-and-forget via chatStore `close()`)
 
 ### Session Lifecycle
@@ -142,19 +142,18 @@ After any server-side change, verify with this sequence before calling it done:
 # 1. Build check
 npm run build
 
-# 2. Start dev server with log capture
-npm run dev > /tmp/therapay-dev.log 2>&1 &
-
-# 3. Auth e2e test (Supabase)
+# 2. Auth e2e test (Supabase)
 curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
   -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
   -H "Content-Type: application/json" \
   -d '{"email":"sarah@therapay.dev","password":"password123"}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
 
-# 4. Check logs
-cat /tmp/therapay-dev.log | tail -20
+# 3. Check dev server logs (server component console.log goes here, NOT to /tmp)
+tail -20 .next/dev/logs/next-development.log
 ```
+
+> **Note:** Server component `console.log` output goes to `.next/dev/logs/next-development.log`, not to any file captured by `npm run dev > /tmp/...`. The `/tmp` redirect only captures the initial startup banner. For UI verification, use Puppeteer with `mcp__puppeteer__*` tools — Supabase SSR session cookies are too complex to replicate via curl.
 
 ## DB Testing Protocol
 After any migration that touches schema or RLS, run these checks before calling it done:
@@ -192,23 +191,9 @@ curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_ty
 
 After any change to `app/api/chat/route.ts`, `lib/data.ts` (context), or the `goals` table:
 
-**1. API smoke test** (curl — confirms route is reachable and returns a stream)
-```bash
-# Get a session token first
-TOKEN=$(curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"sarah@therapay.dev","password":"password123"}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-
-# Hit the chat route with a UIMessage-format payload
-curl -s -X POST http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -H "Cookie: sb-pbijbpfgmcbtipuebsnn-auth-token-0=$TOKEN" \
-  -d '{"messages":[{"id":"test1","role":"user","parts":[{"type":"text","text":"How is my practice performing?"}]}]}' \
-  | head -20
-```
-Expected: SSE stream with `data:` lines containing text chunks. A 401 means the session cookie isn't being set correctly.
+**1. UI smoke test via Puppeteer** (curl cannot replicate Supabase SSR session cookies — use browser-based testing)
+- Log in as sarah@therapay.dev via `mcp__puppeteer__*` tools
+- Open chat panel and verify conversation starters appear
 
 **2. Key behaviors to verify via Puppeteer UI test**
 - Open chat panel → conversation starters appear
@@ -223,7 +208,7 @@ The v6 `useChat` client sends `UIMessage[]` (parts-based). The `streamText` func
 
 **4. Goals table smoke test after saveGoals**
 ```sql
-SELECT id, goal_year, annual_income_target, target_weekly_sessions, target_avg_payout, optimization_preference, is_active
+SELECT id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, is_active
 FROM goals
 WHERE user_id = (SELECT id FROM auth.users WHERE email = 'sarah@therapay.dev')
 ORDER BY created_at DESC

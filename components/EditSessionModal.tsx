@@ -56,10 +56,8 @@ export default function EditSessionModal({ session, open, mode = "edit", onClose
       session_datetime: (form.session_datetime as string) || (session?.session_datetime ?? new Date().toISOString()),
       amount: (form.amount as number) ?? (session?.amount ?? 0),
       state: (form.state as string) || (session?.state ?? ""),
-      session_descriptor: "",
       session_code: code,
       payer,
-      ...buildInferred(code, payer),
     };
   }
 

@@ -20,7 +20,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState({
     annual_income_target: goal?.annual_income_target ?? 0,
-    target_weekly_sessions: goal?.target_weekly_sessions ?? 0,
+    target_weekly_hours: goal?.target_weekly_hours ?? 0,
     target_avg_payout: goal?.target_avg_payout ?? 0,
   });
 
@@ -40,7 +40,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
       .from("goals")
       .update({
         annual_income_target: values.annual_income_target,
-        target_weekly_sessions: values.target_weekly_sessions,
+        target_weekly_hours: values.target_weekly_hours,
         target_avg_payout: values.target_avg_payout,
         last_modified_by: "user",
         last_modified_at: new Date().toISOString(),
@@ -60,7 +60,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
   function handleCancel() {
     setValues({
       annual_income_target: goal?.annual_income_target ?? 0,
-      target_weekly_sessions: goal?.target_weekly_sessions ?? 0,
+      target_weekly_hours: goal?.target_weekly_hours ?? 0,
       target_avg_payout: goal?.target_avg_payout ?? 0,
     });
     setEditing(false);
@@ -116,12 +116,13 @@ export default function GoalCard({ goal }: GoalCardProps) {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Weekly Sessions</Label>
+                <Label>Weekly Hours</Label>
                 <Input
                   type="number"
-                  value={values.target_weekly_sessions}
+                  step="0.1"
+                  value={values.target_weekly_hours}
                   onChange={(e) =>
-                    setValues((v) => ({ ...v, target_weekly_sessions: Number(e.target.value) }))
+                    setValues((v) => ({ ...v, target_weekly_hours: Number(e.target.value) }))
                   }
                 />
               </div>
@@ -158,8 +159,8 @@ export default function GoalCard({ goal }: GoalCardProps) {
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Weekly Sessions</p>
-              <p className="text-2xl font-semibold">{goal.target_weekly_sessions}</p>
+              <p className="text-xs text-muted-foreground mb-1">Weekly Hours</p>
+              <p className="text-2xl font-semibold">{goal.target_weekly_hours.toFixed(1)} hrs</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Avg Payout / Session</p>

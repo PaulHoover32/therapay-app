@@ -3,8 +3,6 @@ import { TherapistProfile, Session } from "@/lib/types";
 export const seedProfile: TherapistProfile = {
   id: "seed-therapist-1",
   name: "Dr. Sarah Chen",
-  annual_goal: 120000,
-  target_weekly_sessions: 20,
   avg_session_duration: 50,
 };
 
@@ -19,7 +17,7 @@ export const seedSessions: Session[] = [
     session_code: "90837",
     appointment_type: "individual",
     state: "CA",
-    session_descriptor: "",
+
     session_duration: 60,
     payer: "BlueCross BlueShield",
   },
@@ -33,7 +31,7 @@ export const seedSessions: Session[] = [
     session_code: "90834",
     appointment_type: "individual",
     state: "CA",
-    session_descriptor: "",
+
     session_duration: 45,
     payer: "Aetna",
   },
@@ -47,7 +45,7 @@ export const seedSessions: Session[] = [
     session_code: "90847",
     appointment_type: "couples",
     state: "CA",
-    session_descriptor: "",
+
     session_duration: 60,
     payer: "Self-Pay",
   },
@@ -61,7 +59,7 @@ export const seedSessions: Session[] = [
     session_code: "90837",
     appointment_type: "individual",
     state: "CA",
-    session_descriptor: "",
+
     session_duration: 60,
     payer: "Self-Pay",
   },
@@ -75,7 +73,7 @@ export const seedSessions: Session[] = [
     session_code: "90837",
     appointment_type: "individual",
     state: "CA",
-    session_descriptor: "",
+
     session_duration: 60,
     payer: "Sliding Scale",
   },

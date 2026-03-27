@@ -17,11 +17,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { format, parseISO, startOfYear, endOfYear, eachWeekOfInterval } from "date-fns";
-import { Session, TherapistProfile } from "@/lib/types";
+import { Session, TherapistProfile, Goal } from "@/lib/types";
 
 interface Props {
   sessions: Session[];
   profile: TherapistProfile;
+  activeGoal: Goal | null;
 }
 
 const chartConfig: ChartConfig = {
@@ -89,8 +90,9 @@ function buildChartData(sessions: Session[]) {
 const fmt = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 
-export default function EarningsChart({ sessions, profile }: Props) {
+export default function EarningsChart({ sessions, activeGoal }: Props) {
   const { data, ytd, projectedAnnual, velocity } = buildChartData(sessions);
+  const annualGoal = activeGoal?.annual_income_target ?? null;
 
   return (
     <div className="space-y-6">
@@ -105,7 +107,9 @@ export default function EarningsChart({ sessions, profile }: Props) {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Annual Goal</p>
-          <p className="text-2xl font-bold text-muted-foreground">{fmt(profile.annual_goal)}</p>
+          <p className="text-2xl font-bold text-muted-foreground">
+            {annualGoal !== null ? fmt(annualGoal) : "–"}
+          </p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Weekly Velocity</p>
@@ -154,12 +158,14 @@ export default function EarningsChart({ sessions, profile }: Props) {
             }
           />
           <ChartLegend content={<ChartLegendContent />} />
-          <ReferenceLine
-            y={profile.annual_goal}
-            strokeDasharray="6 3"
-            strokeOpacity={0.5}
-            label={{ value: "Goal", position: "insideTopRight", fontSize: 11, opacity: 0.6 }}
-          />
+          {annualGoal !== null && (
+            <ReferenceLine
+              y={annualGoal}
+              strokeDasharray="6 3"
+              strokeOpacity={0.5}
+              label={{ value: "Goal", position: "insideTopRight", fontSize: 11, opacity: 0.6 }}
+            />
+          )}
           <Area
             type="monotone"
             dataKey="actual"

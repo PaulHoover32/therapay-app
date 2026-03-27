@@ -18,13 +18,14 @@ export async function getSessionById(id: string): Promise<Session> {
 
 export interface TherapistContext {
   name: string;
+  avgSessionDuration: number;
   ytdRevenue: number;
-  avgWeeklySessions: number;
+  avgWeeklyHours: number;
   avgPayoutPerSession: number;
   weeksRemainingInYear: number;
   existingGoal: {
     annual_income_target: number;
-    target_weekly_sessions: number;
+    target_weekly_hours: number;
     target_avg_payout: number;
     optimization_preference: string;
     goal_year: number;
@@ -35,21 +36,14 @@ export async function getTherapistContext(
   supabase: SupabaseClient,
   userId: string
 ): Promise<TherapistContext> {
-  // Fetch therapist profile
+  // Fetch therapist profile (single query)
   const { data: therapist } = await supabase
     .from("therapists")
-    .select("name, annual_goal, target_weekly_sessions")
+    .select("id, name, avg_session_duration")
     .eq("user_id", userId)
     .single();
 
-  // Fetch all sessions for this therapist
-  const { data: therapistRow } = await supabase
-    .from("therapists")
-    .select("id")
-    .eq("user_id", userId)
-    .single();
-
-  const therapistId = therapistRow?.id;
+  const therapistId = therapist?.id;
 
   const now = new Date();
   const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
@@ -57,12 +51,12 @@ export async function getTherapistContext(
   const { data: sessions } = therapistId
     ? await supabase
         .from("sessions")
-        .select("amount, session_datetime, created_at")
+        .select("amount, session_datetime, session_duration")
         .eq("therapist_id", therapistId)
         .gte("session_datetime", startOfYear)
     : { data: [] };
 
-  const allSessions: { amount: number; session_datetime: string }[] = sessions ?? [];
+  const allSessions: { amount: number; session_datetime: string; session_duration: number }[] = sessions ?? [];
 
   // YTD revenue
   const ytdRevenue = allSessions.reduce((sum, s) => sum + s.amount, 0);
@@ -72,7 +66,8 @@ export async function getTherapistContext(
   const recent = allSessions.filter(
     (s) => new Date(s.session_datetime) >= fourWeeksAgo
   );
-  const avgWeeklySessions = recent.length / 4;
+  // Compute hours from real session_duration values (minutes → hours, averaged over 4 weeks)
+  const avgWeeklyHours = recent.reduce((sum, s) => sum + s.session_duration, 0) / 60 / 4;
   const avgPayoutPerSession =
     recent.length > 0
       ? recent.reduce((sum, s) => sum + s.amount, 0) / recent.length
@@ -89,7 +84,7 @@ export async function getTherapistContext(
   const { data: goal } = await supabase
     .from("goals")
     .select(
-      "annual_income_target, target_weekly_sessions, target_avg_payout, optimization_preference, goal_year"
+      "annual_income_target, target_weekly_hours, target_avg_payout, optimization_preference, goal_year"
     )
     .eq("user_id", userId)
     .eq("goal_year", now.getFullYear())
@@ -100,8 +95,9 @@ export async function getTherapistContext(
 
   return {
     name: therapist?.name ?? "therapist",
+    avgSessionDuration: therapist?.avg_session_duration ?? 50,
     ytdRevenue,
-    avgWeeklySessions,
+    avgWeeklyHours,
     avgPayoutPerSession,
     weeksRemainingInYear,
     existingGoal: goal ?? null,

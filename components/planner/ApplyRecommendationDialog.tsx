@@ -52,7 +52,7 @@ export default function ApplyRecommendationDialog({
       user_id: user.id,
       goal_year: year,
       annual_income_target: recommendation.annual_income_target,
-      target_weekly_sessions: recommendation.target_weekly_sessions,
+      target_weekly_hours: recommendation.target_weekly_hours,
       target_avg_payout: recommendation.target_avg_payout,
       is_active: true,
       last_modified_by: "ai",
@@ -88,7 +88,7 @@ export default function ApplyRecommendationDialog({
             {currentGoal ? (
               <>
                 <Stat label="Annual Target" value={fmt(currentGoal.annual_income_target)} />
-                <Stat label="Weekly Sessions" value={String(currentGoal.target_weekly_sessions)} />
+                <Stat label="Weekly Hours" value={`${currentGoal.target_weekly_hours.toFixed(1)} hrs`} />
                 <Stat label="Avg Payout" value={fmt(currentGoal.target_avg_payout)} />
               </>
             ) : (
@@ -100,7 +100,7 @@ export default function ApplyRecommendationDialog({
               This Recommendation
             </p>
             <Stat label="Annual Target" value={fmt(recommendation.annual_income_target)} highlight />
-            <Stat label="Weekly Sessions" value={String(recommendation.target_weekly_sessions)} highlight />
+            <Stat label="Weekly Hours" value={`${recommendation.target_weekly_hours.toFixed(1)} hrs`} highlight />
             <Stat label="Avg Payout" value={fmt(recommendation.target_avg_payout)} highlight />
           </div>
         </div>

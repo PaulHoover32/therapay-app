@@ -137,23 +137,45 @@ Therapay helps 1099 therapists track and project their earnings.
 - Public paths: `/login`
 
 ## Testing After Changes
-After any server-side change, verify with this sequence before calling it done:
+
+**A clean build is not sufficient — always verify in the browser using Puppeteer.**
+
+After any change, verify with this sequence before calling it done:
+
 ```bash
 # 1. Build check
 npm run build
+```
 
-# 2. Auth e2e test (Supabase)
+```
+# 2. Puppeteer UI smoke test (REQUIRED for any UI change)
+- Navigate to http://localhost:3000/login
+- Fill email: sarah@therapay.dev, password: password123, click submit
+- Navigate to http://localhost:3000/dashboard
+- Take a screenshot and verify the changed UI looks correct
+- Interact with any new components (click buttons, open modals, etc.)
+- Take a final screenshot confirming the feature works as intended
+```
+
+```bash
+# 3. Auth e2e test (Supabase) — for auth/data changes
 curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
   -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
   -H "Content-Type: application/json" \
   -d '{"email":"sarah@therapay.dev","password":"password123"}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
 
-# 3. Check dev server logs (server component console.log goes here, NOT to /tmp)
+# 4. Check dev server logs (server component console.log goes here, NOT to /tmp)
 tail -20 .next/dev/logs/next-development.log
 ```
 
-> **Note:** Server component `console.log` output goes to `.next/dev/logs/next-development.log`, not to any file captured by `npm run dev > /tmp/...`. The `/tmp` redirect only captures the initial startup banner. For UI verification, use Puppeteer with `mcp__puppeteer__*` tools — Supabase SSR session cookies are too complex to replicate via curl.
+> **Note:** Server component `console.log` output goes to `.next/dev/logs/next-development.log`, not to any file captured by `npm run dev > /tmp/...`. The `/tmp` redirect only captures the initial startup banner.
+
+### Puppeteer tips
+- Use `mcp__puppeteer__puppeteer_navigate`, `mcp__puppeteer__puppeteer_click`, `mcp__puppeteer__puppeteer_screenshot`
+- Click buttons by stable class selectors (e.g. `button.text-blue-500`), not by text content via JS evaluate — `evaluate` with `.click()` returns the DOM element and crashes the tab
+- Always take a screenshot after opening a modal/dialog to confirm layout is correct before declaring done
+- Supabase SSR session cookies are too complex to replicate via curl — Puppeteer is the only reliable UI test method
 
 ## DB Testing Protocol
 After any migration that touches schema or RLS, run these checks before calling it done:

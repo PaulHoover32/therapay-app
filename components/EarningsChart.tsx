@@ -117,13 +117,11 @@ export default function EarningsChart({ sessions, activeGoal }: Props) {
   const completeWeekCount = weeklyPoints.filter((p) => p.actual !== null).length;
   const lowDataWarning = completeWeekCount < 6;
 
-  const gap = annualGoal !== null ? projectedAnnual - annualGoal : null;
-
   return (
     <div className="space-y-6">
       {/* Stats bar */}
       <div className="flex items-start justify-between gap-4">
-        <div className="grid grid-cols-3 gap-4 flex-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
           <div>
             <p className="text-sm text-muted-foreground">YTD Earnings</p>
             <p className="text-2xl font-bold">{fmt(ytd)}</p>
@@ -139,24 +137,21 @@ export default function EarningsChart({ sessions, activeGoal }: Props) {
               <p className="text-2xl font-bold">{fmt(organicProjectedAnnual)}</p>
             </div>
           )}
-          {mode === "cumulative" ? (
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {gap !== null ? (gap >= 0 ? "Ahead of Goal" : "Behind Goal") : "vs Goal"}
-              </p>
-              <p className={`text-2xl font-bold ${gap === null ? "text-muted-foreground" : gap >= 0 ? "text-green-500" : "text-red-500"}`}>
-                {gap !== null ? fmt(Math.abs(gap)) : "–"}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-muted-foreground">Forecast / wk</p>
-              <p className="text-2xl font-bold">
-                {fmt(forecastedWeeklyAvg)}
-                <span className="text-sm font-normal text-muted-foreground">/wk</span>
-              </p>
-            </div>
-          )}
+          <div>
+            <p className="text-sm text-muted-foreground">Annual Goal</p>
+            <p className="text-2xl font-bold text-muted-foreground">
+              {annualGoal !== null ? fmt(annualGoal) : "–"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">
+              {mode === "cumulative" ? "Weekly Velocity" : "Forecast / wk"}
+            </p>
+            <p className="text-2xl font-bold">
+              {fmt(mode === "cumulative" ? velocity : forecastedWeeklyAvg)}
+              <span className="text-sm font-normal text-muted-foreground">/wk</span>
+            </p>
+          </div>
         </div>
 
         {/* Toggle */}
@@ -235,12 +230,14 @@ export default function EarningsChart({ sessions, activeGoal }: Props) {
               }
             />
             <ChartLegend content={<ChartLegendContent />} />
-            <ReferenceLine
-              y={velocity}
-              strokeDasharray="4 2"
-              strokeOpacity={0.5}
-              label={{ value: "Velocity", position: "insideTopRight", fontSize: 11, opacity: 0.6 }}
-            />
+            {annualGoal !== null && (
+              <ReferenceLine
+                y={annualGoal / 52}
+                strokeDasharray="6 3"
+                strokeOpacity={0.5}
+                label={{ value: "Goal/wk", position: "insideTopRight", fontSize: 11, opacity: 0.6 }}
+              />
+            )}
             {/* Past complete weeks */}
             <Bar dataKey="actual" fill="var(--color-actual)" radius={[2, 2, 0, 0]} maxBarSize={20} />
             {/* Current partial week — lighter opacity */}

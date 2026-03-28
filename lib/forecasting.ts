@@ -138,13 +138,20 @@ export function buildWeeklyForecast(sessions: Session[], today: Date): WeeklyPoi
     { weekStartsOn: 1 },
   );
 
-  // Bucket sessions into calendar weeks (current year only)
+  // Bucket current-year sessions by week (for chart actuals)
   const weeklyRevenue: Record<string, number> = {};
   for (const s of sessions) {
     const d = parseISO(s.session_datetime);
     if (d.getFullYear() !== year) continue;
     const key = weekKey(getMonday(d));
     weeklyRevenue[key] = (weeklyRevenue[key] ?? 0) + s.amount;
+  }
+
+  // All-time session buckets for trailing velocity fallback
+  const allWeeklyRevenue: Record<string, number> = {};
+  for (const s of sessions) {
+    const key = weekKey(getMonday(parseISO(s.session_datetime)));
+    allWeeklyRevenue[key] = (allWeeklyRevenue[key] ?? 0) + s.amount;
   }
 
   const currentMondayKey = weekKey(getMonday(today));
@@ -183,6 +190,24 @@ export function buildWeeklyForecast(sessions: Session[], today: Date): WeeklyPoi
     };
   } else {
     forecastFn = () => 0;
+  }
+
+  // ── Fallback: no current-year revenue — use trailing velocity from all sessions ──
+  const hasCurrentYearRevenue = completeWeeks.some((w) => w.revenue > 0);
+  if (!hasCurrentYearRevenue) {
+    const recentKeys = Object.keys(allWeeklyRevenue).sort().slice(-4);
+    const trailingVelocity = recentKeys.reduce((s, k) => s + allWeeklyRevenue[k], 0) / 4;
+    forecastFn = (weekIndex) =>
+      Math.max(0, trailingVelocity * SEASONAL_INDEX[Math.min(weekIndex % 52, 51)]);
+
+    // Project the full year — therapist hasn't entered current-year data yet
+    return weeks.map((w, i) => ({
+      weekStart: weekKey(w),
+      label: format(w, "MMM d"),
+      actual: null,
+      currentWeek: null,
+      forecast: forecastFn(i),
+    }));
   }
 
   // ── Build output ──

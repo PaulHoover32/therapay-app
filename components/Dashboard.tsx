@@ -8,9 +8,11 @@ import { UserCircle, PlusCircle, Target } from "lucide-react";
 import EarningsChart from "./EarningsChart";
 import LeverCards from "./LeverCards";
 import SessionLedger from "./SessionLedger";
+import StaleDataBanner from "./StaleDataBanner";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { toast } from "sonner";
+import { parseISO, differenceInDays } from "date-fns";
 
 interface Props {
   initialSessions: Session[];
@@ -84,6 +86,16 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
 
   const isEmpty = sessions.length === 0;
 
+  const latestSessionDate = sessions.length > 0
+    ? sessions.reduce((latest, s) => {
+        const d = parseISO(s.session_datetime);
+        return d > latest ? d : latest;
+      }, parseISO(sessions[0].session_datetime))
+    : null;
+  const daysSinceLastSession = latestSessionDate
+    ? differenceInDays(new Date(), latestSessionDate)
+    : null;
+
   async function handleAdd(input: SessionInput) {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
@@ -125,6 +137,13 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
 
   return (
     <div className="space-y-8">
+      {daysSinceLastSession !== null && daysSinceLastSession >= 14 && (
+        <StaleDataBanner
+          daysSinceLastSession={daysSinceLastSession}
+          onLogSession={() => document.getElementById("session-ledger")?.scrollIntoView({ behavior: "smooth" })}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Earnings Overview</CardTitle>
@@ -138,14 +157,16 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
 
       <Separator />
 
-      <SessionLedger
-        sessions={sessions}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        onAdd={handleAdd}
-        payers={payers}
-        sessionCodes={sessionCodes}
-      />
+      <div id="session-ledger">
+        <SessionLedger
+          sessions={sessions}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onAdd={handleAdd}
+          payers={payers}
+          sessionCodes={sessionCodes}
+        />
+      </div>
     </div>
   );
 }

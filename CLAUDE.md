@@ -138,8 +138,6 @@ Therapay helps 1099 therapists track and project their earnings.
 
 ## Testing After Changes
 
-**A clean build is not sufficient — always verify in the browser using Puppeteer.**
-
 After any change, verify with this sequence before calling it done:
 
 ```bash
@@ -148,13 +146,11 @@ npm run build
 ```
 
 ```
-# 2. Puppeteer UI smoke test (REQUIRED for any UI change)
-- Navigate to http://localhost:3000/login
-- Fill email: sarah@therapay.dev, password: password123, click submit
-- Navigate to http://localhost:3000/dashboard
-- Take a screenshot and verify the changed UI looks correct
-- Interact with any new components (click buttons, open modals, etc.)
-- Take a final screenshot confirming the feature works as intended
+# 2. Puppeteer UI test — only for UI changes
+- Only run Puppeteer when the change affects the UI (new components, modals, visual changes, etc.)
+- Do NOT run a generic dashboard smoke test — test only the specific functionality that changed
+- Navigate to the relevant page, interact with the changed component, and screenshot to confirm it works
+- Log in as sarah@therapay.dev / password123 unless another account is more relevant
 ```
 
 ```bash

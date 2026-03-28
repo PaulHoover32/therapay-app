@@ -23,6 +23,7 @@ const TEST_ACCOUNTS = [
   { email: "sarah@therapay.dev", name: "Dr. Sarah Chen", description: "High earner · $120k goal · mixed payers" },
   { email: "marcus@therapay.dev", name: "Marcus Rivera, LCSW", description: "Mid-career · $85k goal · insurance-heavy" },
   { email: "jordan@therapay.dev", name: "Jordan Kim, LPC", description: "Building practice · $60k goal · self-pay" },
+  { email: "test@test.ai", name: "Lauren Ruest, LMFT", description: "Established practice · insurance-heavy · CA" },
 ];
 
 export function LoginForm({

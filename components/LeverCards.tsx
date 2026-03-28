@@ -64,10 +64,10 @@ interface WeeklyMetrics {
   avgPayout: MetricPoint[];
 }
 
-function buildWeeklyMetrics(sessions: Session[], today: Date): WeeklyMetrics {
+function buildWeeklyMetrics(sessions: Session[], today: Date, now: Date = today): WeeklyMetrics {
   const year = today.getFullYear();
   const weeks = eachWeekOfInterval(
-    { start: startOfYear(today), end: today },
+    { start: startOfYear(today), end: now },
     { weekStartsOn: 1 },
   );
 
@@ -151,10 +151,19 @@ const fmt$ = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 
 export default function LeverCards({ sessions, activeGoal }: Props) {
-  const today = new Date("2026-03-20");
+  const now = new Date();
+  const latestSession = sessions.length > 0
+    ? sessions.reduce((latest, s) => {
+        const d = parseISO(s.session_datetime);
+        return d > latest ? d : latest;
+      }, parseISO(sessions[0].session_datetime))
+    : now;
+  // velocityDate: anchor rolling averages to last active period (keeps cards meaningful for stale data)
+  const velocityDate = latestSession.getFullYear() < now.getFullYear() ? latestSession : now;
   const { avgRevenue, avgHours, avgPayout, prevRevenue, prevHours, prevPayout } =
-    getRolling4WeekData(sessions, today);
-  const weeklyMetrics = buildWeeklyMetrics(sessions, today);
+    getRolling4WeekData(sessions, velocityDate);
+  // Modal charts always use current year
+  const weeklyMetrics = buildWeeklyMetrics(sessions, now);
 
   const targetRevenue = activeGoal ? activeGoal.annual_income_target / 52 : null;
   const targetHours = activeGoal?.target_weekly_hours ?? null;

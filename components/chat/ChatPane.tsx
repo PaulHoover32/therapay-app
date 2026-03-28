@@ -12,12 +12,61 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { CONVERSATION_STARTERS } from "@/components/chat/starters";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import PayerMixViz from "@/components/chat/tools/PayerMixViz";
+import CaseloadViz from "@/components/chat/tools/CaseloadViz";
+import ScaffoldedPlanViz from "@/components/chat/tools/ScaffoldedPlanViz";
 
 // Transport is stable — defined outside component
 const transport = new DefaultChatTransport({
   api: "/api/chat",
   body: () => ({ sessionId: useChatStore.getState().currentSessionId }),
 });
+
+// ─── Markdown bubble ────────────────────────────────────────────────────────
+
+function MarkdownBubble({ text, isUser }: { text: string; isUser: boolean }) {
+  return (
+    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+      <div
+        className={cn(
+          "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-foreground"
+        )}
+      >
+        {isUser ? (
+          text
+        ) : (
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+              li: ({ children }) => <li>{children}</li>,
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  className="text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  {children}
+                </a>
+              ),
+              code: ({ children }) => (
+                <code className="bg-background/50 rounded px-1 py-0.5 text-xs font-mono">
+                  {children}
+                </code>
+              ),
+            }}
+          >
+            {text}
+          </ReactMarkdown>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Outer shell: loads persisted session, then renders inner pane ───────────
 
@@ -158,54 +207,43 @@ function ChatPaneInner({
         ) : (
           <div className="space-y-3">
             {messages.map((msg) => {
-              const text = msg.parts
-                .filter((p) => p.type === "text")
-                .map((p) => ("text" in p ? p.text : ""))
-                .join("");
-
-              if (!text && msg.role !== "user") return null;
-
               const isUser = msg.role === "user";
 
               return (
-                <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                      isUser
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    )}
-                  >
-                    {isUser ? (
-                      text
-                    ) : (
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                          li: ({ children }) => <li>{children}</li>,
-                          a: ({ href, children }) => (
-                            <a
-                              href={href}
-                              className="text-primary underline underline-offset-2 hover:no-underline"
-                            >
-                              {children}
-                            </a>
-                          ),
-                          code: ({ children }) => (
-                            <code className="bg-background/50 rounded px-1 py-0.5 text-xs font-mono">
-                              {children}
-                            </code>
-                          ),
-                        }}
-                      >
-                        {text}
-                      </ReactMarkdown>
-                    )}
-                  </div>
+                <div key={msg.id} className="space-y-2">
+                  {msg.parts.map((part, partIdx) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const p = part as any;
+
+                    if (p.type === "text" && p.text) {
+                      return (
+                        <MarkdownBubble
+                          key={partIdx}
+                          text={p.text}
+                          isUser={isUser}
+                        />
+                      );
+                    }
+
+                    // AI SDK v6: tool parts have type "tool-{toolName}" with state "output-available"
+                    if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-") && p.state === "output-available") {
+                      const toolName = p.type.slice(5); // strip "tool-" prefix
+                      const output = p.output;
+                      if (!output || output.error) return null;
+                      if (toolName === "analyzePayerMix") {
+                        return <PayerMixViz key={partIdx} data={output} />;
+                      }
+                      if (toolName === "analyzeCurrentPayers") {
+                        return <CaseloadViz key={partIdx} data={output} />;
+                      }
+                      if (toolName === "showScaffoldedPlan") {
+                        return <ScaffoldedPlanViz key={partIdx} data={output} />;
+                      }
+                      // saveGoals — render nothing
+                    }
+
+                    return null;
+                  })}
                 </div>
               );
             })}

@@ -43,6 +43,8 @@ const chartConfig: ChartConfig = {
 };
 
 export default function LeverDetailModal({ open, onClose, title, data, target, formatter }: Props) {
+  const xInterval = Math.max(0, Math.ceil(data.length / 13) - 1);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="w-[90vw] max-w-4xl sm:max-w-4xl">
@@ -57,7 +59,7 @@ export default function LeverDetailModal({ open, onClose, title, data, target, f
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 11 }}
-              interval={3}
+              interval={xInterval}
             />
             <YAxis
               tickFormatter={formatter}

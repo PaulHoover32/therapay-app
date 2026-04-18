@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useChatStore } from "@/store/chatStore";
 
 interface GoalCardProps {
   goal: Goal | null;
@@ -16,6 +17,7 @@ interface GoalCardProps {
 
 export default function GoalCard({ goal }: GoalCardProps) {
   const router = useRouter();
+  const triggerStarter = useChatStore((s) => s.triggerStarter);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState({
@@ -33,19 +35,36 @@ export default function GoalCard({ goal }: GoalCardProps) {
   }
 
   async function handleSave() {
-    if (!goal) return;
     setSaving(true);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase
-      .from("goals")
-      .update({
+    const now = new Date().toISOString();
+
+    let error;
+    if (!goal) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setSaving(false); toast.error("Not authenticated."); return; }
+      ({ error } = await supabase.from("goals").insert({
+        user_id: user.id,
+        goal_year: new Date().getFullYear(),
         annual_income_target: values.annual_income_target,
         target_weekly_hours: values.target_weekly_hours,
         target_avg_payout: values.target_avg_payout,
+        is_active: true,
         last_modified_by: "user",
-        last_modified_at: new Date().toISOString(),
-      })
-      .eq("id", goal.id);
+        last_modified_at: now,
+      }));
+    } else {
+      ({ error } = await supabase
+        .from("goals")
+        .update({
+          annual_income_target: values.annual_income_target,
+          target_weekly_hours: values.target_weekly_hours,
+          target_avg_payout: values.target_avg_payout,
+          last_modified_by: "user",
+          last_modified_at: now,
+        })
+        .eq("id", goal.id));
+    }
 
     setSaving(false);
     if (error) {
@@ -53,7 +72,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
       return;
     }
     setEditing(false);
-    toast.success("Goal updated.");
+    toast.success(goal ? "Goal updated." : "Goals set!");
     router.refresh();
   }
 
@@ -66,16 +85,86 @@ export default function GoalCard({ goal }: GoalCardProps) {
     setEditing(false);
   }
 
+  const editForm = (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <Label>Annual Income Target</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input
+              type="number"
+              className="pl-6"
+              value={values.annual_income_target}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, annual_income_target: Number(e.target.value) }))
+              }
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Weekly Hours</Label>
+          <Input
+            type="number"
+            step="0.1"
+            value={values.target_weekly_hours}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, target_weekly_hours: Number(e.target.value) }))
+            }
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Avg Payout / Session</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input
+              type="number"
+              className="pl-6"
+              value={values.target_avg_payout}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, target_avg_payout: Number(e.target.value) }))
+              }
+            />
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+
   if (!goal) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-start justify-between">
           <CardTitle>Your Goals</CardTitle>
+          {!editing && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="bg-violet-600 hover:bg-violet-500 text-white"
+                onClick={() => triggerStarter("Model scenarios and set goals")}
+              >
+                Get AI Recommendation
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                Set Goals
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No goals set yet. Open the chat assistant to get a recommendation.
-          </p>
+          {editing ? editForm : (
+            <p className="text-sm text-muted-foreground">
+              No goals set yet. Get an AI recommendation or set your own targets manually.
+            </p>
+          )}
         </CardContent>
       </Card>
     );
@@ -98,59 +187,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
         )}
       </CardHeader>
       <CardContent>
-        {editing ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Annual Income Target</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                  <Input
-                    type="number"
-                    className="pl-6"
-                    value={values.annual_income_target}
-                    onChange={(e) =>
-                      setValues((v) => ({ ...v, annual_income_target: Number(e.target.value) }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Weekly Hours</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={values.target_weekly_hours}
-                  onChange={(e) =>
-                    setValues((v) => ({ ...v, target_weekly_hours: Number(e.target.value) }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Avg Payout / Session</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                  <Input
-                    type="number"
-                    className="pl-6"
-                    value={values.target_avg_payout}
-                    onChange={(e) =>
-                      setValues((v) => ({ ...v, target_avg_payout: Number(e.target.value) }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
+        {editing ? editForm : (
           <div className="grid grid-cols-3 gap-6">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Annual Target</p>

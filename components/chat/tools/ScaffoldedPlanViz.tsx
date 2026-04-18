@@ -10,17 +10,23 @@ interface Milestone {
   cumulativeTarget: number;
   cumulativePace: number;
   sessionsNeeded: number;
+  clientsThisMonth?: number;
 }
 
 interface Props {
   data: {
+    mode?: "new-practice" | "established";
     annualTarget: number;
+    addRatePerMonth?: number;
     ytdRevenue: number;
     currentAnnualPace: number;
     currentMonthlyPace: number;
     neededMonthlyAvg: number;
     gapToClose: number;
     milestones: Milestone[];
+    fullCaseloadMonthlyRevenue?: number;
+    monthsToFullCaseload?: number;
+    startingClients?: number;
   };
 }
 
@@ -33,14 +39,21 @@ const chartConfig: ChartConfig = {
 };
 
 export default function ScaffoldedPlanViz({ data }: Props) {
+  const isNewPractice = data.mode === "new-practice";
+  const addRate = data.addRatePerMonth ?? 2;
   const onPace = data.currentAnnualPace >= data.annualTarget;
+  const futureMilestones = data.milestones.filter((m) => m.actual === null && m.targetRevThisMonth > 0);
 
   return (
     <div className="rounded-xl border bg-card p-4 my-1 max-w-[340px] space-y-4">
       <div>
-        <p className="text-xs font-semibold text-foreground">Scaffolded Plan</p>
+        <p className="text-xs font-semibold text-foreground">
+          {isNewPractice ? "Caseload Build Plan" : "Scaffolded Plan"}
+        </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Target {fmt$(data.annualTarget)} · Current pace {fmt$(data.currentAnnualPace)}/yr
+          {isNewPractice
+            ? `Starting at ${data.startingClients ?? 0} clients · Adding ~${addRate}/month · Full caseload: 20`
+            : `Target ${fmt$(data.annualTarget)} · Current pace ${fmt$(data.currentAnnualPace)}/yr`}
         </p>
       </div>
 
@@ -65,6 +78,7 @@ export default function ScaffoldedPlanViz({ data }: Props) {
           <ChartTooltip
             content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
+              const milestone = data.milestones.find((m) => m.month === label);
               return (
                 <div className="rounded-lg border bg-background px-2.5 py-2 shadow-sm text-xs space-y-1">
                   <p className="font-medium">{label}</p>
@@ -74,6 +88,9 @@ export default function ScaffoldedPlanViz({ data }: Props) {
                       {chartConfig[p.dataKey as keyof typeof chartConfig]?.label}: {fmt$(Number(p.value))}
                     </p>
                   ))}
+                  {isNewPractice && milestone?.clientsThisMonth !== undefined && (
+                    <p className="text-muted-foreground">{milestone.clientsThisMonth} clients/week</p>
+                  )}
                 </div>
               );
             }}
@@ -88,48 +105,71 @@ export default function ScaffoldedPlanViz({ data }: Props) {
             strokeWidth={2}
             dot={false}
           />
-          <Line
-            type="monotone"
-            dataKey="cumulativePace"
-            stroke="var(--color-cumulativePace)"
-            strokeWidth={1.5}
-            strokeDasharray="4 3"
-            dot={false}
-          />
+          {!isNewPractice && (
+            <Line
+              type="monotone"
+              dataKey="cumulativePace"
+              stroke="var(--color-cumulativePace)"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              dot={false}
+            />
+          )}
         </ComposedChart>
       </ChartContainer>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 border-t pt-3">
-        <div>
-          <p className="text-xs text-muted-foreground">Monthly avg needed</p>
-          <p className="text-sm font-semibold">{fmt$(data.neededMonthlyAvg)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Current monthly avg</p>
-          <p className="text-sm font-semibold">{fmt$(data.currentMonthlyPace)}</p>
-        </div>
-        {!onPace && (
-          <div className="col-span-2">
-            <p className="text-xs text-muted-foreground">Gap to close</p>
-            <p className="text-sm font-semibold text-amber-400">{fmt$(data.gapToClose)}</p>
+      {isNewPractice ? (
+        <div className="grid grid-cols-2 gap-3 border-t pt-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Achievable this year</p>
+            <p className="text-sm font-semibold">{fmt$(data.annualTarget)}</p>
           </div>
-        )}
-        {onPace && (
-          <div className="col-span-2">
-            <p className="text-xs text-green-400 font-medium">You're on pace to hit your target.</p>
+          <div>
+            <p className="text-xs text-muted-foreground">Full caseload run rate</p>
+            <p className="text-sm font-semibold">{data.fullCaseloadMonthlyRevenue ? fmt$(data.fullCaseloadMonthlyRevenue) + "/mo" : "—"}</p>
           </div>
-        )}
-      </div>
+          <div className="col-span-2">
+            <p className="text-xs text-muted-foreground">Months to full caseload</p>
+            <p className="text-sm font-semibold text-violet-400">~{data.monthsToFullCaseload} months</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 border-t pt-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Monthly avg needed</p>
+            <p className="text-sm font-semibold">{fmt$(data.neededMonthlyAvg)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Current monthly avg</p>
+            <p className="text-sm font-semibold">{fmt$(data.currentMonthlyPace)}</p>
+          </div>
+          {!onPace && (
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">Gap to close</p>
+              <p className="text-sm font-semibold text-amber-400">{fmt$(data.gapToClose)}</p>
+            </div>
+          )}
+          {onPace && (
+            <div className="col-span-2">
+              <p className="text-xs text-green-400 font-medium">You're on pace to hit your target.</p>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Monthly sessions table — first 6 future months */}
+      {/* Monthly breakdown — clients/week for new practice, sessions for established */}
       <div className="border-t pt-3">
-        <p className="text-xs text-muted-foreground font-medium mb-2">Sessions needed / month</p>
+        <p className="text-xs text-muted-foreground font-medium mb-2">
+          {isNewPractice ? "Clients / week by month" : "Sessions needed / month"}
+        </p>
         <div className="grid grid-cols-3 gap-y-1.5 gap-x-2">
-          {data.milestones.filter((m) => m.actual === null).slice(0, 6).map((m) => (
+          {futureMilestones.slice(0, 6).map((m) => (
             <div key={m.month} className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{m.month}</span>
-              <span className="font-medium">{m.sessionsNeeded}</span>
+              <span className="font-medium">
+                {isNewPractice ? (m.clientsThisMonth ?? "—") : m.sessionsNeeded}
+              </span>
             </div>
           ))}
         </div>

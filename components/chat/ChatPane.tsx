@@ -165,6 +165,16 @@ function ChatPaneInner({
     setInput("");
   }
 
+  // Auto-send pending starter (triggered from another page)
+  useEffect(() => {
+    const { pendingStarter, clearPendingStarter } = useChatStore.getState();
+    if (pendingStarter) {
+      clearPendingStarter();
+      handleSend(pendingStarter);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     handleSend(input);

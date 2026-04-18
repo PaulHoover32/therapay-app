@@ -40,6 +40,9 @@ export interface TherapistContext {
     optimization_preference: string;
     goal_year: number;
   } | null;
+  hasNoData: boolean;
+  priorYearRevenue: number | null;
+  projectedAnnual: number | null;
 }
 
 export async function getTherapistContext(
@@ -130,6 +133,22 @@ export async function getTherapistContext(
     Math.round((endOfYear.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
 
+  // Derived context fields
+  const hasNoData = allSessions.length === 0;
+
+  const priorYear = effectiveYear - 1;
+  const priorYearRevenue = allSessions.some((s) => new Date(s.session_datetime).getFullYear() === priorYear)
+    ? allSessions
+        .filter((s) => new Date(s.session_datetime).getFullYear() === priorYear)
+        .reduce((sum, s) => sum + s.amount, 0)
+    : null;
+
+  const weeksElapsed = 52 - weeksRemainingInYear;
+  const projectedAnnual =
+    !hasNoData && effectiveYear === now.getFullYear() && weeksElapsed > 0 && ytdRevenue > 0
+      ? Math.round((ytdRevenue / weeksElapsed) * 52)
+      : null;
+
   // Active goal for current calendar year
   const { data: goal } = await supabase
     .from("goals")
@@ -154,6 +173,9 @@ export async function getTherapistContext(
     weeksRemainingInYear,
     payerMix,
     existingGoal: goal ?? null,
+    hasNoData,
+    priorYearRevenue,
+    projectedAnnual,
   };
 }
 

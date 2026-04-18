@@ -6,9 +6,12 @@ interface ChatStore {
   currentSessionId: string | null;
   hasRecommendation: boolean;
   conversationKey: number;
+  pendingStarter: string | null;
   createSession: () => Promise<void>;
   setHasRecommendation: () => void;
   newConversation: () => void;
+  triggerStarter: (text: string) => void;
+  clearPendingStarter: () => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -17,6 +20,7 @@ export const useChatStore = create<ChatStore>()(
       currentSessionId: null,
       hasRecommendation: false,
       conversationKey: 0,
+      pendingStarter: null,
 
       createSession: async () => {
         const supabase = createSupabaseBrowserClient();
@@ -44,6 +48,16 @@ export const useChatStore = create<ChatStore>()(
           hasRecommendation: false,
           conversationKey: state.conversationKey + 1,
         })),
+
+      triggerStarter: (text: string) =>
+        set((state) => ({
+          pendingStarter: text,
+          currentSessionId: null,
+          hasRecommendation: false,
+          conversationKey: state.conversationKey + 1,
+        })),
+
+      clearPendingStarter: () => set({ pendingStarter: null }),
     }),
     {
       name: "therapay-chat",

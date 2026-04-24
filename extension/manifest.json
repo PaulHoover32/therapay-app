@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Therapay",
+  "version": "1.0.0",
+  "description": "Log therapy sessions without leaving your browser",
+  "permissions": ["storage", "sidePanel", "cookies"],
+  "host_permissions": [
+    "https://pbijbpfgmcbtipuebsnn.supabase.co/*",
+    "https://therapay.dev/*",
+    "http://localhost/*"
+  ],
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icon-16.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  }
+}

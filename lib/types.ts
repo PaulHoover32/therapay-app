@@ -65,4 +65,5 @@ export interface Recommendation {
   avg_weekly_hours_at_time: number;
   avg_payout_at_time: number;
   weeks_remaining_at_input: number;
+  deleted_at?: string | null;
 }

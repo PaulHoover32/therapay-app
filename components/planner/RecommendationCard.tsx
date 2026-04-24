@@ -5,24 +5,52 @@ import { Goal, Recommendation } from "@/lib/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ApplyRecommendationDialog from "@/components/planner/ApplyRecommendationDialog";
 
 interface RecommendationCardProps {
   recommendation: Recommendation;
   currentGoal: Goal | null;
+  onDelete: () => void;
 }
 
-export default function RecommendationCard({ recommendation: rec, currentGoal }: RecommendationCardProps) {
+export default function RecommendationCard({
+  recommendation: rec,
+  currentGoal,
+  onDelete,
+}: RecommendationCardProps) {
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const date = new Date(rec.created_at).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    try {
+      await fetch(`/api/recommendations/${rec.id}`, { method: "PATCH" });
+      onDelete();
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  }
 
   return (
     <>
@@ -38,9 +66,19 @@ export default function RecommendationCard({ recommendation: rec, currentGoal }:
                 {rec.weeks_remaining_at_input} weeks remaining
               </p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-              Apply
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+                Apply
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -85,6 +123,28 @@ export default function RecommendationCard({ recommendation: rec, currentGoal }:
         recommendation={rec}
         currentGoal={currentGoal}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this recommendation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              If you delete this recommendation, the Therapay assistant will no longer be able to
+              reference it when helping you set future goals.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

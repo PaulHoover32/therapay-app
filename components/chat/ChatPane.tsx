@@ -4,24 +4,32 @@ import { useState, useEffect, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
-import { Send, SquarePen } from "lucide-react";
+import { Send, SquarePen, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/store/chatStore";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { CONVERSATION_STARTERS } from "@/components/chat/starters";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-// Transport is stable — defined outside component
 const transport = new DefaultChatTransport({
   api: "/api/chat",
   body: () => ({ sessionId: useChatStore.getState().currentSessionId }),
 });
 
+const GREETING =
+  "Ask me about anything in your practice — your earnings, payer mix, session trends, goals, or how to grow.";
+
 // ─── Markdown bubble ────────────────────────────────────────────────────────
 
-function MarkdownBubble({ text, isUser }: { text: string; isUser: boolean }) {
+function MarkdownBubble({
+  text,
+  isUser,
+}: {
+  text: string;
+  isUser: boolean;
+}) {
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
@@ -29,31 +37,51 @@ function MarkdownBubble({ text, isUser }: { text: string; isUser: boolean }) {
           "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
+            : "bg-violet-950 text-violet-100"
         )}
       >
         {isUser ? (
           text
         ) : (
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-              ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+              strong: ({ children }) => (
+                <strong className="font-semibold">{children}</strong>
+              ),
+              ul: ({ children }) => (
+                <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>
+              ),
               li: ({ children }) => <li>{children}</li>,
               a: ({ href, children }) => (
                 <a
                   href={href}
-                  className="text-primary underline underline-offset-2 hover:no-underline"
+                  className="text-violet-300 underline underline-offset-2 hover:no-underline"
                 >
                   {children}
                 </a>
               ),
               code: ({ children }) => (
-                <code className="bg-background/50 rounded px-1 py-0.5 text-xs font-mono">
+                <code className="bg-violet-900/50 rounded px-1 py-0.5 text-xs font-mono">
                   {children}
                 </code>
+              ),
+              table: ({ children }) => (
+                <div className="overflow-x-auto my-2">
+                  <table className="text-xs w-full border-collapse">{children}</table>
+                </div>
+              ),
+              th: ({ children }) => (
+                <th className="border border-violet-800 px-2 py-1 text-left font-semibold bg-violet-900/50">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="border border-violet-800 px-2 py-1">{children}</td>
               ),
             }}
           >
@@ -65,11 +93,12 @@ function MarkdownBubble({ text, isUser }: { text: string; isUser: boolean }) {
   );
 }
 
-// ─── Outer shell: loads persisted session, then renders inner pane ───────────
+// ─── Outer shell: handles session loading + pane resizing ────────────────────
 
 export default function ChatPane() {
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined);
   const [ready, setReady] = useState(false);
+  const [width, setWidth] = useState(380);
   const conversationKey = useChatStore((s) => s.conversationKey);
   const newConversation = useChatStore((s) => s.newConversation);
 
@@ -94,23 +123,51 @@ export default function ChatPane() {
       });
   }, [conversationKey]);
 
-  if (!ready) {
-    return (
-      <div className="w-[380px] shrink-0 border-l flex flex-col h-full">
-        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-          <p className="text-sm font-semibold">Therapay Assistant</p>
-        </div>
-        <div className="flex-1" />
-      </div>
-    );
+  function handleDragStart(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+
+    function onMove(ev: MouseEvent) {
+      const delta = startX - ev.clientX;
+      setWidth(Math.min(700, Math.max(260, startWidth + delta)));
+    }
+
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   }
 
   return (
-    <ChatPaneInner
-      key={conversationKey}
-      initialMessages={initialMessages}
-      onNewConversation={newConversation}
-    />
+    <div
+      className="relative shrink-0 border-l flex flex-col h-full"
+      style={{ width: `${width}px` }}
+    >
+      {/* Drag handle */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-violet-500/40 transition-colors z-10"
+        onMouseDown={handleDragStart}
+      />
+
+      {!ready ? (
+        <>
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+            <p className="text-sm font-semibold text-violet-400">Therapay Assistant</p>
+          </div>
+          <div className="flex-1" />
+        </>
+      ) : (
+        <ChatPaneInner
+          key={conversationKey}
+          initialMessages={initialMessages}
+          onNewConversation={newConversation}
+        />
+      )}
+    </div>
   );
 }
 
@@ -124,8 +181,10 @@ function ChatPaneInner({
   onNewConversation: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<UIMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const { messages, sendMessage, status } = useChat({
     transport,
@@ -141,17 +200,25 @@ function ChatPaneInner({
     },
   });
 
-  // Keep ref in sync for onFinish closure
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Scroll chat container on new messages / streaming
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [messages, status]);
+    const sentinel = bottomRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsAtBottom(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  function scrollToBottom() {
+    const el = containerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
 
   function handleSend(text: string) {
     if (!text.trim()) return;
@@ -160,9 +227,9 @@ function ChatPaneInner({
     }
     sendMessage({ text });
     setInput("");
+    setTimeout(scrollToBottom, 50);
   }
 
-  // Auto-send pending starter (triggered from another page)
   useEffect(() => {
     const { pendingStarter, clearPendingStarter } = useChatStore.getState();
     if (pendingStarter) {
@@ -177,14 +244,13 @@ function ChatPaneInner({
     handleSend(input);
   }
 
-  const showStarters = messages.length === 0;
   const isStreaming = status === "streaming" || status === "submitted";
 
   return (
-    <div className="w-[380px] shrink-0 border-l flex flex-col h-full">
+    <>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-        <p className="text-sm font-semibold">Therapay Assistant</p>
+        <p className="text-sm font-semibold text-violet-400">Therapay Assistant</p>
         <Button
           variant="ghost"
           size="icon"
@@ -197,64 +263,67 @@ function ChatPaneInner({
       </div>
 
       {/* Message thread */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3">
-        {showStarters ? (
-          <div className="space-y-2 pt-4">
-            <p className="text-xs text-muted-foreground mb-3">How can I help you today?</p>
-            {CONVERSATION_STARTERS.map((starter) => (
-              <button
-                key={starter}
-                onClick={() => handleSend(starter)}
-                className="w-full text-left text-sm rounded-lg border border-border px-3 py-2.5 hover:bg-accent transition-colors"
-              >
-                {starter}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {messages.map((msg) => {
-              const isUser = msg.role === "user";
+      <div className="relative flex-1 min-h-0">
+      {!isAtBottom && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-violet-600 hover:bg-violet-500 text-white text-xs px-3 py-1.5 shadow-lg transition-colors"
+        >
+          <ArrowDown className="h-3 w-3" />
+          Scroll to bottom
+        </button>
+      )}
+      <div ref={containerRef} className="h-full overflow-y-auto px-4 py-3">
+        <div className="space-y-3">
+          {/* Greeting — always shown as the first message */}
+          <MarkdownBubble text={GREETING} isUser={false} />
 
-              return (
-                <div key={msg.id} className="space-y-2">
-                  {msg.parts.map((part, partIdx) => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const p = part as any;
+          {messages.map((msg, msgIdx) => {
+            const isUser = msg.role === "user";
+            const isLastMsg = msgIdx === messages.length - 1;
 
-                    if (p.type === "text" && p.text) {
-                      return (
-                        <MarkdownBubble
-                          key={partIdx}
-                          text={p.text}
-                          isUser={isUser}
-                        />
-                      );
-                    }
+            return (
+              <div key={msg.id} className="space-y-2">
+                {msg.parts.map((part, partIdx) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const p = part as any;
 
-                    // Tool parts render nothing — LLM communicates results in text
-                    if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-")) {
-                      return null;
-                    }
+                  if (p.type === "text" && p.text) {
+                    return (
+                      <MarkdownBubble
+                        key={partIdx}
+                        text={p.text}
+                        isUser={isUser}
+                      />
+                    );
+                  }
 
+                  // Tool parts render nothing — LLM communicates results in text
+                  if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-")) {
                     return null;
-                  })}
-                </div>
-              );
-            })}
-            {isStreaming && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-2xl px-3.5 py-2.5">
-                  <span className="flex gap-1 items-center h-4">
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
-                  </span>
-                </div>
+                  }
+
+                  return null;
+                })}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })}
+
+          <div ref={bottomRef} className="h-px" />
+
+          {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
+            <div className="flex justify-start">
+              <div className="bg-violet-950 rounded-2xl px-3.5 py-2.5">
+                <span className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:300ms]" />
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       </div>
 
       {/* Input footer */}
@@ -277,6 +346,6 @@ function ChatPaneInner({
           </Button>
         </form>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { streamText, tool, stepCountIs, convertToModelMessages } from "ai";
+import { streamText, tool, stepCountIs, convertToModelMessages, smoothStream } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     system: buildSystemPrompt(ctx),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(15),
+    experimental_transform: smoothStream({ delayInMs: 15, chunking: /[\s\S]/ }),
     tools: {
       queryData: tool({
         description:

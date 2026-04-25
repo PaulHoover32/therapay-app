@@ -12,9 +12,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { CONVERSATION_STARTERS } from "@/components/chat/starters";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import PayerMixViz from "@/components/chat/tools/PayerMixViz";
-import CaseloadViz from "@/components/chat/tools/CaseloadViz";
-import ScaffoldedPlanViz from "@/components/chat/tools/ScaffoldedPlanViz";
 
 // Transport is stable — defined outside component
 const transport = new DefaultChatTransport({
@@ -235,21 +232,9 @@ function ChatPaneInner({
                       );
                     }
 
-                    // AI SDK v6: tool parts have type "tool-{toolName}" with state "output-available"
-                    if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-") && p.state === "output-available") {
-                      const toolName = p.type.slice(5); // strip "tool-" prefix
-                      const output = p.output;
-                      if (!output || output.error) return null;
-                      if (toolName === "analyzePayerMix") {
-                        return <PayerMixViz key={partIdx} data={output} />;
-                      }
-                      if (toolName === "analyzeCurrentPayers") {
-                        return <CaseloadViz key={partIdx} data={output} />;
-                      }
-                      if (toolName === "showScaffoldedPlan") {
-                        return <ScaffoldedPlanViz key={partIdx} data={output} />;
-                      }
-                      // saveGoals — render nothing
+                    // Tool parts render nothing — LLM communicates results in text
+                    if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-")) {
+                      return null;
                     }
 
                     return null;

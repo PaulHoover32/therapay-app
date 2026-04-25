@@ -40,7 +40,7 @@ export async function buildUserDb(
     { data: refSessionCodes },
   ] = await Promise.all([
     supabase.from("sessions").select("*").eq("therapist_id", therapistId),
-    supabase.from("goals").select("*").eq("user_id", userId),
+    supabase.from("goals").select("*").eq("user_id", userId).eq("is_active", true),
     supabase
       .from("recommendations")
       .select("*")

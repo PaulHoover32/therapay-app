@@ -12,6 +12,7 @@ interface Props {
   sessions: Session[];
   profile: TherapistProfile;
   activeGoal: Goal | null;
+  effectiveToday: Date;
 }
 
 function getRolling4WeekData(sessions: Session[], today: Date) {
@@ -150,18 +151,10 @@ function TrendIcon({ current, prev }: { current: number; prev: number }) {
 const fmt$ = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 
-export default function LeverCards({ sessions, activeGoal }: Props) {
+export default function LeverCards({ sessions, activeGoal, effectiveToday }: Props) {
   const now = new Date();
-  const latestSession = sessions.length > 0
-    ? sessions.reduce((latest, s) => {
-        const d = parseISO(s.session_datetime);
-        return d > latest ? d : latest;
-      }, parseISO(sessions[0].session_datetime))
-    : now;
-  // velocityDate: anchor rolling averages to last active period (keeps cards meaningful for stale data)
-  const velocityDate = latestSession.getFullYear() < now.getFullYear() ? latestSession : now;
   const { avgRevenue, avgHours, avgPayout, prevRevenue, prevHours, prevPayout } =
-    getRolling4WeekData(sessions, velocityDate);
+    getRolling4WeekData(sessions, effectiveToday);
   // Modal charts always use current year
   const weeklyMetrics = buildWeeklyMetrics(sessions, now);
 
@@ -193,7 +186,18 @@ export default function LeverCards({ sessions, activeGoal }: Props) {
     },
   };
 
-  const cards: Array<{ title: string; value: string; target: string; current: number; tgt: number | null; prev: number; subtitle: string; modalKey: ModalKey }> = [
+  function deltaLabel(delta: number, prev: number, formatter: (v: number) => string, unit: string): string {
+    if (prev === 0) return "No prior period data";
+    const sign = delta >= 0 ? "+" : "";
+    return `${sign}${formatter(Math.abs(delta))}${unit} vs. prior period`;
+  }
+
+  function deltaColor(delta: number, prev: number): string {
+    if (prev === 0 || Math.abs(delta / prev) < 0.02) return "text-muted-foreground";
+    return delta > 0 ? "text-green-400" : "text-red-400";
+  }
+
+  const cards: Array<{ title: string; value: string; target: string; current: number; tgt: number | null; prev: number; subtitle: string; modalKey: ModalKey; deltaText: string; deltaClass: string }> = [
     {
       title: "Revenue Velocity",
       value: fmt$(avgRevenue),
@@ -203,6 +207,8 @@ export default function LeverCards({ sessions, activeGoal }: Props) {
       prev: prevRevenue,
       subtitle: "4-week rolling avg",
       modalKey: "revenue",
+      deltaText: deltaLabel(avgRevenue - prevRevenue, prevRevenue, fmt$, "/wk"),
+      deltaClass: deltaColor(avgRevenue - prevRevenue, prevRevenue),
     },
     {
       title: "Hours Velocity",
@@ -213,6 +219,8 @@ export default function LeverCards({ sessions, activeGoal }: Props) {
       prev: prevHours,
       subtitle: "4-week rolling avg",
       modalKey: "hours",
+      deltaText: deltaLabel(avgHours - prevHours, prevHours, (v) => `${v.toFixed(1)} hrs`, "/wk"),
+      deltaClass: deltaColor(avgHours - prevHours, prevHours),
     },
     {
       title: "Avg Payout",
@@ -223,6 +231,8 @@ export default function LeverCards({ sessions, activeGoal }: Props) {
       prev: prevPayout,
       subtitle: "4-week rolling avg",
       modalKey: "payout",
+      deltaText: deltaLabel(avgPayout - prevPayout, prevPayout, fmt$, "/session"),
+      deltaClass: deltaColor(avgPayout - prevPayout, prevPayout),
     },
   ];
 
@@ -242,6 +252,9 @@ export default function LeverCards({ sessions, activeGoal }: Props) {
             <CardContent>
               <p className={cn("text-2xl font-bold", card.tgt !== null ? statusColor(card.current, card.tgt) : "")}>
                 {card.value}
+              </p>
+              <p className={cn("text-xs font-medium mt-0.5", card.deltaClass)}>
+                {card.deltaText}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Target: {card.target}

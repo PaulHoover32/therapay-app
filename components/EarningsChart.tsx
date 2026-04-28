@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/chart";
 import { format, parseISO, startOfYear, endOfYear, eachWeekOfInterval } from "date-fns";
 import { Session, TherapistProfile, Goal } from "@/lib/types";
-import { buildWeeklyForecast, organicForecastStats } from "@/lib/forecasting";
+import { buildWeeklyForecast } from "@/lib/forecasting";
 
 interface Props {
   sessions: Session[];
@@ -120,11 +120,10 @@ export default function EarningsChart({ sessions, activeGoal }: Props) {
   const annualGoal = activeGoal?.annual_income_target ?? null;
 
   // Cumulative mode data
-  const { data: cumulativeData, ytd, projectedAnnual, velocity } = buildCumulativeData(sessions, today);
+  const { data: cumulativeData } = buildCumulativeData(sessions, today);
 
   // Weekly mode data
   const weeklyPoints = buildWeeklyForecast(sessions, today);
-  const { organicProjectedAnnual, forecastedWeeklyAvg } = organicForecastStats(weeklyPoints, ytd);
   const completeWeekCount = weeklyPoints.filter((p) => p.actual !== null).length;
   const lowDataWarning = completeWeekCount < 6;
 
@@ -132,44 +131,10 @@ export default function EarningsChart({ sessions, activeGoal }: Props) {
   const weeklyXInterval = Math.max(0, Math.ceil(weeklyPoints.length / 13) - 1);
 
   return (
-    <div className="space-y-6">
-      {/* Stats bar */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
-          <div>
-            <p className="text-sm text-muted-foreground">YTD Earnings</p>
-            <p className="text-2xl font-bold">{fmt(ytd)}</p>
-          </div>
-          {mode === "cumulative" ? (
-            <div>
-              <p className="text-sm text-muted-foreground">Projected Annual</p>
-              <p className="text-2xl font-bold">{fmt(projectedAnnual)}</p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-muted-foreground">Organic Forecast</p>
-              <p className="text-2xl font-bold">{fmt(organicProjectedAnnual)}</p>
-            </div>
-          )}
-          <div>
-            <p className="text-sm text-muted-foreground">Annual Goal</p>
-            <p className="text-2xl font-bold text-muted-foreground">
-              {annualGoal !== null ? fmt(annualGoal) : "–"}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">
-              {mode === "cumulative" ? "Weekly Velocity" : "Forecast / wk"}
-            </p>
-            <p className="text-2xl font-bold">
-              {fmt(mode === "cumulative" ? velocity : forecastedWeeklyAvg)}
-              <span className="text-sm font-normal text-muted-foreground">/wk</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Toggle */}
-        <div className="flex rounded-md border border-border overflow-hidden shrink-0 mt-1">
+    <div className="space-y-4">
+      {/* Toggle */}
+      <div className="flex justify-end">
+        <div className="flex rounded-md border border-border overflow-hidden">
           <button
             onClick={() => setMode("cumulative")}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${

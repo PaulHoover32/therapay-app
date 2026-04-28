@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { UserCircle, PlusCircle, Target } from "lucide-react";
 import EarningsChart from "./EarningsChart";
+import GoalsOverview from "./GoalsOverview";
 import LeverCards from "./LeverCards";
 import SessionLedger from "./SessionLedger";
 import StaleDataBanner from "./StaleDataBanner";
@@ -96,6 +97,11 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
     ? differenceInDays(new Date(), latestSessionDate)
     : null;
 
+  const effectiveToday =
+    latestSessionDate && latestSessionDate.getFullYear() < new Date().getFullYear()
+      ? latestSessionDate
+      : new Date();
+
   async function handleAdd(input: SessionInput) {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
@@ -144,6 +150,8 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
         />
       )}
 
+      <GoalsOverview sessions={sessions} activeGoal={activeGoal} effectiveToday={effectiveToday} />
+
       <Card>
         <CardHeader>
           <CardTitle>Earnings Overview</CardTitle>
@@ -153,7 +161,7 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
         </CardContent>
       </Card>
 
-      <LeverCards sessions={sessions} profile={profile} activeGoal={activeGoal} />
+      <LeverCards sessions={sessions} profile={profile} activeGoal={activeGoal} effectiveToday={effectiveToday} />
 
       <Separator />
 

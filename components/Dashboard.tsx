@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { UserCircle, PlusCircle, Target } from "lucide-react";
 import EarningsChart from "./EarningsChart";
-import GoalsOverview from "./GoalsOverview";
 import LeverCards from "./LeverCards";
 import SessionLedger from "./SessionLedger";
 import StaleDataBanner from "./StaleDataBanner";
@@ -150,11 +149,17 @@ export default function Dashboard({ initialSessions, profile, payers, sessionCod
         />
       )}
 
-      <GoalsOverview sessions={sessions} activeGoal={activeGoal} effectiveToday={effectiveToday} />
-
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>Earnings Overview</CardTitle>
+          {activeGoal && (
+            <p className="text-sm text-muted-foreground">
+              Annual goal:{" "}
+              <span className="font-medium text-foreground">
+                {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(activeGoal.annual_income_target)}
+              </span>
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <EarningsChart sessions={sessions} profile={profile} activeGoal={activeGoal} />

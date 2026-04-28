@@ -24,17 +24,28 @@ function buildSystemPrompt(ctx: TherapistContext): string {
     ? `$${ctx.priorYearRevenue.toLocaleString()} (${ctx.effectiveYear - 1})`
     : "N/A";
 
+  const fmt$ = (v: number) => `$${Math.round(v).toLocaleString()}`;
+  const dailyBlock = ctx.hasNoData ? "No session data yet" : [
+    `Revenue/day: ${fmt$(ctx.revenuePerDay)} (prev 28d: ${fmt$(ctx.prevRevenuePerDay)})${ctx.targetRevenuePerDay ? ` — goal ${fmt$(ctx.targetRevenuePerDay)}/day` : ""}`,
+    `Hours/day: ${ctx.hoursPerDay.toFixed(1)} hrs (prev 28d: ${ctx.prevHoursPerDay.toFixed(1)} hrs)${ctx.targetHoursPerDay ? ` — goal ${ctx.targetHoursPerDay.toFixed(1)} hrs/day` : ""}`,
+    `Avg payout/session: ${fmt$(ctx.avgPayoutPerSession)}${ctx.existingGoal ? ` — goal ${fmt$(ctx.existingGoal.target_avg_payout)}/session` : ""}`,
+    `Working days/week (inferred): ${ctx.effectiveDaysPerWeek.toFixed(1)}`,
+  ].join("\n- ");
+
   return `You are a financial advisor for independent (1099) therapists. Help them understand their practice performance, analyze their data, and set achievable financial goals.
 
 ## Therapist: ${ctx.name}
 - ${ctx.hasNoData ? "No sessions logged yet" : `${ctx.effectiveYear} YTD revenue: $${ctx.ytdRevenue.toLocaleString()}`}
 - Projected annual: ${projectedBlock}
 - Prior year revenue: ${priorYearBlock}
-- Avg weekly hours (last 4 weeks): ${ctx.hasNoData ? "N/A" : `${ctx.avgWeeklyHours.toFixed(1)} hrs`}
-- Avg payout per session (last 4 weeks): ${ctx.hasNoData ? "N/A" : `$${ctx.avgPayoutPerSession.toFixed(0)}`}
 - Weeks remaining in ${now.getFullYear()}: ${ctx.weeksRemainingInYear}
 - ${goalBlock}
 - Industry benchmarks: median gross $75k–$110k/yr; avg session $115–$145 (mixed payer); full-time ~20–25 hrs/week
+
+## Dashboard Metrics (last 28 days vs. prior 28 days — matches cards exactly)
+- ${dailyBlock}
+
+These numbers are precomputed from the latest session data. Use them directly when discussing daily performance or goal progress — no need to re-query for these specific figures. Frame performance in daily terms (revenue/day, hours/day) rather than weekly unless the therapist asks for weekly.
 
 ## Your Data
 Use the \`queryData\` tool to run SQL SELECT queries against these tables:

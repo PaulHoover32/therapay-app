@@ -43,6 +43,14 @@ export interface TherapistContext {
   hasNoData: boolean;
   priorYearRevenue: number | null;
   projectedAnnual: number | null;
+  // Daily metrics — working-day normalized, match dashboard cards exactly
+  revenuePerDay: number;
+  prevRevenuePerDay: number;
+  hoursPerDay: number;
+  prevHoursPerDay: number;
+  effectiveDaysPerWeek: number;
+  targetRevenuePerDay: number | null;
+  targetHoursPerDay: number | null;
 }
 
 export async function getTherapistContext(
@@ -149,6 +157,32 @@ export async function getTherapistContext(
       ? Math.round((ytdRevenue / weeksElapsed) * 52)
       : null;
 
+  // Daily metrics — mirrors LeverCards getDailyMetrics() exactly
+  const cutoff28 = new Date(effectiveToday.getTime() - 28 * 24 * 60 * 60 * 1000);
+  const cutoff56 = new Date(effectiveToday.getTime() - 56 * 24 * 60 * 60 * 1000);
+  const currentPeriod = allSessions.filter((s) => {
+    const d = new Date(s.session_datetime);
+    return d >= cutoff28 && d <= effectiveToday;
+  });
+  const priorPeriod = allSessions.filter((s) => {
+    const d = new Date(s.session_datetime);
+    return d >= cutoff56 && d < cutoff28;
+  });
+  const countWorkingDays = (arr: typeof allSessions) =>
+    new Set(arr.map((s) => s.session_datetime.slice(0, 10))).size;
+  const currentDays = countWorkingDays(currentPeriod);
+  const priorDays = countWorkingDays(priorPeriod);
+  const currentPeriodRevenue = currentPeriod.reduce((sum, s) => sum + s.amount, 0);
+  const priorPeriodRevenue = priorPeriod.reduce((sum, s) => sum + s.amount, 0);
+  const currentPeriodHours = currentPeriod.reduce((sum, s) => sum + s.session_duration / 60, 0);
+  const priorPeriodHours = priorPeriod.reduce((sum, s) => sum + s.session_duration / 60, 0);
+  const revenuePerDay = currentDays > 0 ? currentPeriodRevenue / currentDays : 0;
+  const prevRevenuePerDay = priorDays > 0 ? priorPeriodRevenue / priorDays : 0;
+  const hoursPerDay = currentDays > 0 ? currentPeriodHours / currentDays : 0;
+  const prevHoursPerDay = priorDays > 0 ? priorPeriodHours / priorDays : 0;
+  const rawDaysPerWeek = currentDays / 4;
+  const effectiveDaysPerWeek = Math.min(5, Math.max(3, rawDaysPerWeek > 0 ? rawDaysPerWeek : 5));
+
   // Active goal for current calendar year
   const { data: goal } = await supabase
     .from("goals")
@@ -161,6 +195,13 @@ export async function getTherapistContext(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const targetRevenuePerDay = goal
+    ? goal.annual_income_target / 52 / effectiveDaysPerWeek
+    : null;
+  const targetHoursPerDay = goal
+    ? goal.target_weekly_hours / effectiveDaysPerWeek
+    : null;
 
   return {
     name: therapist?.name ?? "therapist",
@@ -176,6 +217,13 @@ export async function getTherapistContext(
     hasNoData,
     priorYearRevenue,
     projectedAnnual,
+    revenuePerDay,
+    prevRevenuePerDay,
+    hoursPerDay,
+    prevHoursPerDay,
+    effectiveDaysPerWeek,
+    targetRevenuePerDay,
+    targetHoursPerDay,
   };
 }
 

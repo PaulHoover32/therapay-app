@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, BarChart2 } from "lucide-react";
 import { Session, TherapistProfile, Goal } from "@/lib/types";
-import { parseISO, subWeeks, isAfter, eachWeekOfInterval, startOfYear, endOfYear, format } from "date-fns";
+import { parseISO, subDays, eachWeekOfInterval, startOfYear, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import LeverDetailModal from "./LeverDetailModal";
 
@@ -15,41 +16,49 @@ interface Props {
   effectiveToday: Date;
 }
 
-function getRolling4WeekData(sessions: Session[], today: Date) {
-  const weeks: Array<{ revenue: number; sessionCount: number; hours: number }> = [];
+function getDailyMetrics(sessions: Session[], today: Date) {
+  const cutoff28 = subDays(today, 28);
+  const cutoff56 = subDays(today, 56);
 
-  for (let i = 0; i < 6; i++) {
-    const weekEnd = subWeeks(today, i);
-    const weekStart = subWeeks(today, i + 1);
-    const weekSessions = sessions.filter((s) => {
-      const d = parseISO(s.session_datetime);
-      return isAfter(d, weekStart) && !isAfter(d, weekEnd);
-    });
-    weeks.unshift({
-      revenue: weekSessions.reduce((sum, s) => sum + s.amount, 0),
-      sessionCount: weekSessions.length,
-      hours: weekSessions.reduce((sum, s) => sum + s.session_duration / 60, 0),
-    });
-  }
+  const current = sessions.filter((s) => {
+    const d = parseISO(s.session_datetime);
+    return d >= cutoff28 && d <= today;
+  });
+  const prior = sessions.filter((s) => {
+    const d = parseISO(s.session_datetime);
+    return d >= cutoff56 && d < cutoff28;
+  });
 
-  const last4 = weeks.slice(-4);
-  const prev4 = weeks.slice(0, 2);
+  // Working days = distinct calendar dates with at least 1 session
+  const countWorkingDays = (arr: Session[]) =>
+    new Set(arr.map((s) => s.session_datetime.slice(0, 10))).size;
 
-  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+  const currentDays = countWorkingDays(current);
+  const priorDays = countWorkingDays(prior);
 
-  const avgRevenue = avg(last4.map((w) => w.revenue));
-  const avgHours = avg(last4.map((w) => w.hours));
-  const totalSessions = last4.reduce((sum, w) => sum + w.sessionCount, 0);
-  const totalRevenue = last4.reduce((sum, w) => sum + w.revenue, 0);
-  const avgPayout = totalSessions > 0 ? totalRevenue / totalSessions : 0;
+  const currentRevenue = current.reduce((sum, s) => sum + s.amount, 0);
+  const priorRevenue = prior.reduce((sum, s) => sum + s.amount, 0);
 
-  const prevRevenue = avg(prev4.map((w) => w.revenue));
-  const prevHours = avg(prev4.map((w) => w.hours));
-  const prevTotalSessions = prev4.reduce((sum, w) => sum + w.sessionCount, 0);
-  const prevTotalRevenue = prev4.reduce((sum, w) => sum + w.revenue, 0);
-  const prevPayout = prevTotalSessions > 0 ? prevTotalRevenue / prevTotalSessions : 0;
+  const revenuePerDay = currentDays > 0 ? currentRevenue / currentDays : 0;
+  const prevRevenuePerDay = priorDays > 0 ? priorRevenue / priorDays : 0;
 
-  return { avgRevenue, avgHours, avgPayout, prevRevenue, prevHours, prevPayout };
+  const currentHours = current.reduce((sum, s) => sum + s.session_duration / 60, 0);
+  const priorHours = prior.reduce((sum, s) => sum + s.session_duration / 60, 0);
+  const hoursPerDay = currentDays > 0 ? currentHours / currentDays : 0;
+  const prevHoursPerDay = priorDays > 0 ? priorHours / priorDays : 0;
+
+  const avgPayout = current.length > 0 ? currentRevenue / current.length : 0;
+  const prevPayout = prior.length > 0 ? priorRevenue / prior.length : 0;
+
+  // Used to derive a daily revenue goal from the annual target
+  const workingDaysPerWeek = currentDays / 4;
+
+  return {
+    revenuePerDay, prevRevenuePerDay,
+    hoursPerDay, prevHoursPerDay,
+    avgPayout, prevPayout,
+    workingDaysPerWeek,
+  };
 }
 
 interface MetricPoint {
@@ -61,14 +70,14 @@ interface MetricPoint {
 
 interface WeeklyMetrics {
   revenue: MetricPoint[];
-  hours: MetricPoint[];
+  sessions: MetricPoint[];
   avgPayout: MetricPoint[];
 }
 
-function buildWeeklyMetrics(sessions: Session[], today: Date, now: Date = today): WeeklyMetrics {
+function buildWeeklyMetrics(sessions: Session[], today: Date): WeeklyMetrics {
   const year = today.getFullYear();
   const weeks = eachWeekOfInterval(
-    { start: startOfYear(today), end: now },
+    { start: startOfYear(today), end: today },
     { weekStartsOn: 1 },
   );
 
@@ -81,24 +90,22 @@ function buildWeeklyMetrics(sessions: Session[], today: Date, now: Date = today)
     return mon;
   };
   const key = (d: Date) => d.toISOString().slice(0, 10);
-
   const currentMondayKey = key(getMonday(today));
 
-  type WeekBucket = { revenue: number; hours: number; sessions: number };
+  type WeekBucket = { revenue: number; sessionCount: number };
   const buckets: Record<string, WeekBucket> = {};
 
   for (const s of sessions) {
     const d = parseISO(s.session_datetime);
     if (d.getFullYear() !== year) continue;
     const k = key(getMonday(d));
-    if (!buckets[k]) buckets[k] = { revenue: 0, hours: 0, sessions: 0 };
+    if (!buckets[k]) buckets[k] = { revenue: 0, sessionCount: 0 };
     buckets[k].revenue += s.amount;
-    buckets[k].hours += s.session_duration / 60;
-    buckets[k].sessions += 1;
+    buckets[k].sessionCount += 1;
   }
 
   const revenueRaw: (number | null)[] = [];
-  const hoursRaw: (number | null)[] = [];
+  const sessionRaw: (number | null)[] = [];
   const payoutRaw: (number | null)[] = [];
   const labels: string[] = [];
   const isCurrent: boolean[] = [];
@@ -109,8 +116,8 @@ function buildWeeklyMetrics(sessions: Session[], today: Date, now: Date = today)
     labels.push(format(w, "MMM d"));
     isCurrent.push(k === currentMondayKey);
     revenueRaw.push(b?.revenue ?? 0);
-    hoursRaw.push(b ? parseFloat(b.hours.toFixed(1)) : 0);
-    payoutRaw.push(b?.sessions ? parseFloat((b.revenue / b.sessions).toFixed(0)) : null);
+    sessionRaw.push(b?.sessionCount ?? 0);
+    payoutRaw.push(b?.sessionCount ? parseFloat((b.revenue / b.sessionCount).toFixed(0)) : null);
   }
 
   const trailing4Avg = (arr: (number | null)[], i: number): number | null => {
@@ -119,32 +126,71 @@ function buildWeeklyMetrics(sessions: Session[], today: Date, now: Date = today)
   };
 
   const revenue: MetricPoint[] = [];
-  const hours: MetricPoint[] = [];
+  const sessionPoints: MetricPoint[] = [];
   const avgPayout: MetricPoint[] = [];
 
   for (let i = 0; i < labels.length; i++) {
     const curr = isCurrent[i];
     revenue.push({ label: labels[i], value: curr ? null : revenueRaw[i], currentValue: curr ? revenueRaw[i] : null, rollingAvg: curr ? null : trailing4Avg(revenueRaw, i) });
-    hours.push({ label: labels[i], value: curr ? null : hoursRaw[i], currentValue: curr ? hoursRaw[i] : null, rollingAvg: curr ? null : trailing4Avg(hoursRaw, i) });
+    sessionPoints.push({ label: labels[i], value: curr ? null : sessionRaw[i], currentValue: curr ? sessionRaw[i] : null, rollingAvg: curr ? null : trailing4Avg(sessionRaw, i) });
     avgPayout.push({ label: labels[i], value: curr ? null : payoutRaw[i], currentValue: curr ? payoutRaw[i] : null, rollingAvg: curr ? null : trailing4Avg(payoutRaw, i) });
   }
 
-  return { revenue, hours, avgPayout };
+  return { revenue, sessions: sessionPoints, avgPayout };
 }
 
-function statusColor(value: number, target: number) {
-  if (value >= target) return "text-green-600 dark:text-green-400";
-  return "text-amber-500 dark:text-amber-400";
+function statusTier(pct: number | null): "building" | "close" | "on-track" | "none" {
+  if (pct === null) return "none";
+  if (pct >= 100) return "on-track";
+  if (pct >= 75) return "close";
+  return "building";
 }
 
-function statusBg(value: number, target: number) {
-  if (value >= target) return "border-l-4 border-l-green-500";
-  return "border-l-4 border-l-amber-500";
+function statusBorderColor(pct: number | null): string {
+  const tier = statusTier(pct);
+  if (tier === "on-track") return "border-l-4 border-l-teal-500";
+  if (tier === "close") return "border-l-4 border-l-violet-500";
+  if (tier === "building") return "border-l-4 border-l-blue-500";
+  return "";
+}
+
+function StatusBadge({ pct }: { pct: number | null }) {
+  const tier = statusTier(pct);
+  if (tier === "none") return null;
+  if (tier === "on-track") return (
+    <Badge variant="outline" className="text-xs bg-teal-500/10 text-teal-400 border-teal-500/30 hover:bg-teal-500/10">
+      On Track
+    </Badge>
+  );
+  if (tier === "close") return (
+    <Badge variant="outline" className="text-xs bg-violet-500/10 text-violet-400 border-violet-500/30 hover:bg-violet-500/10">
+      Getting Close
+    </Badge>
+  );
+  return (
+    <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/10">
+      Still Building
+    </Badge>
+  );
+}
+
+function ProgressBar({ pct }: { pct: number | null }) {
+  if (pct === null) return null;
+  const tier = statusTier(pct);
+  const fill = tier === "on-track" ? "bg-teal-500" : tier === "close" ? "bg-violet-500" : "bg-blue-500";
+  return (
+    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+      <div
+        className={cn("h-full rounded-full transition-all [width:var(--bar-pct)]", fill)}
+        style={{ "--bar-pct": `${Math.min(pct, 100)}%` } as React.CSSProperties}
+      />
+    </div>
+  );
 }
 
 function TrendIcon({ current, prev }: { current: number; prev: number }) {
-  if (current > prev * 1.02) return <TrendingUp className="w-4 h-4 text-green-500" />;
-  if (current < prev * 0.98) return <TrendingDown className="w-4 h-4 text-red-500" />;
+  if (current > prev * 1.02) return <TrendingUp className="w-4 h-4 text-teal-500" />;
+  if (current < prev * 0.98) return <TrendingDown className="w-4 h-4 text-muted-foreground" />;
   return <Minus className="w-4 h-4 text-muted-foreground" />;
 }
 
@@ -153,30 +199,44 @@ const fmt$ = (v: number) =>
 
 export default function LeverCards({ sessions, activeGoal, effectiveToday }: Props) {
   const now = new Date();
-  const { avgRevenue, avgHours, avgPayout, prevRevenue, prevHours, prevPayout } =
-    getRolling4WeekData(sessions, effectiveToday);
-  // Modal charts always use current year
+  const {
+    revenuePerDay, prevRevenuePerDay,
+    hoursPerDay, prevHoursPerDay,
+    avgPayout, prevPayout,
+    workingDaysPerWeek,
+  } = getDailyMetrics(sessions, effectiveToday);
+
   const weeklyMetrics = buildWeeklyMetrics(sessions, now);
 
-  const targetRevenue = activeGoal ? activeGoal.annual_income_target / 52 : null;
-  const targetHours = activeGoal?.target_weekly_hours ?? null;
+  // Revenue/day goal: derived from annual target ÷ 52 weeks ÷ avg working days/week
+  // Clamp to [3, 5] — a therapist works at least 3 days/week, at most 5
+  const effectiveDaysPerWeek = Math.min(5, Math.max(3, workingDaysPerWeek > 0 ? workingDaysPerWeek : 5));
+  const targetRevenuePerDay = activeGoal
+    ? activeGoal.annual_income_target / 52 / effectiveDaysPerWeek
+    : null;
   const targetPayout = activeGoal?.target_avg_payout ?? null;
 
-  type ModalKey = "revenue" | "hours" | "payout";
+  const targetHoursPerDay = activeGoal ? activeGoal.target_weekly_hours / effectiveDaysPerWeek : null;
+
+  const revenuePct = targetRevenuePerDay ? (revenuePerDay / targetRevenuePerDay) * 100 : null;
+  const hoursPct = targetHoursPerDay ? (hoursPerDay / targetHoursPerDay) * 100 : null;
+  const payoutPct = targetPayout ? (avgPayout / targetPayout) * 100 : null;
+
+  type ModalKey = "revenue" | "sessions" | "payout";
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
 
   const modalProps: Record<ModalKey, { title: string; data: MetricPoint[]; target: number | null; formatter: (v: number) => string }> = {
     revenue: {
-      title: "Revenue Velocity — Weekly History",
+      title: "Revenue — Weekly History",
       data: weeklyMetrics.revenue,
-      target: targetRevenue,
+      target: targetRevenuePerDay ? targetRevenuePerDay * effectiveDaysPerWeek : null,
       formatter: (v) => `$${Math.round(v).toLocaleString()}`,
     },
-    hours: {
-      title: "Hours Velocity — Weekly History",
-      data: weeklyMetrics.hours,
-      target: targetHours,
-      formatter: (v) => `${v.toFixed(1)} h`,
+    sessions: {
+      title: "Hours — Weekly History",
+      data: weeklyMetrics.sessions,
+      target: activeGoal?.target_weekly_hours ?? null,
+      formatter: (v) => `${v.toFixed(1)} hrs`,
     },
     payout: {
       title: "Avg Payout — Weekly History",
@@ -188,51 +248,51 @@ export default function LeverCards({ sessions, activeGoal, effectiveToday }: Pro
 
   function deltaLabel(delta: number, prev: number, formatter: (v: number) => string, unit: string): string {
     if (prev === 0) return "No prior period data";
-    const sign = delta >= 0 ? "+" : "";
-    return `${sign}${formatter(Math.abs(delta))}${unit} vs. prior period`;
+    const sign = delta >= 0 ? "+" : "−";
+    return `${sign}${formatter(Math.abs(delta))}${unit} vs. prior 28 days`;
   }
 
   function deltaColor(delta: number, prev: number): string {
     if (prev === 0 || Math.abs(delta / prev) < 0.02) return "text-muted-foreground";
-    return delta > 0 ? "text-green-400" : "text-red-400";
+    return delta > 0 ? "text-teal-400" : "text-muted-foreground";
   }
 
-  const cards: Array<{ title: string; value: string; target: string; current: number; tgt: number | null; prev: number; subtitle: string; modalKey: ModalKey; deltaText: string; deltaClass: string }> = [
+  const cards = [
     {
-      title: "Revenue Velocity",
-      value: fmt$(avgRevenue),
-      target: targetRevenue !== null ? `${fmt$(targetRevenue)} / wk` : "–",
-      current: avgRevenue,
-      tgt: targetRevenue,
-      prev: prevRevenue,
-      subtitle: "4-week rolling avg",
-      modalKey: "revenue",
-      deltaText: deltaLabel(avgRevenue - prevRevenue, prevRevenue, fmt$, "/wk"),
-      deltaClass: deltaColor(avgRevenue - prevRevenue, prevRevenue),
+      title: "Revenue / Day",
+      value: fmt$(revenuePerDay),
+      target: targetRevenuePerDay !== null ? `${fmt$(targetRevenuePerDay)} / day` : "No goal set",
+      current: revenuePerDay,
+      prev: prevRevenuePerDay,
+      pct: revenuePct,
+      modalKey: "revenue" as ModalKey,
+      deltaText: deltaLabel(revenuePerDay - prevRevenuePerDay, prevRevenuePerDay, fmt$, "/day"),
+      deltaClass: deltaColor(revenuePerDay - prevRevenuePerDay, prevRevenuePerDay),
+      sublabel: "28-day avg · working days only",
     },
     {
-      title: "Hours Velocity",
-      value: `${avgHours.toFixed(1)} hrs / wk`,
-      target: targetHours !== null ? `${targetHours.toFixed(1)} hrs / wk` : "–",
-      current: avgHours,
-      tgt: targetHours,
-      prev: prevHours,
-      subtitle: "4-week rolling avg",
-      modalKey: "hours",
-      deltaText: deltaLabel(avgHours - prevHours, prevHours, (v) => `${v.toFixed(1)} hrs`, "/wk"),
-      deltaClass: deltaColor(avgHours - prevHours, prevHours),
+      title: "Hours / Day",
+      value: `${hoursPerDay.toFixed(1)} hrs`,
+      target: targetHoursPerDay !== null ? `${targetHoursPerDay.toFixed(1)} hrs / day` : "No goal set",
+      current: hoursPerDay,
+      prev: prevHoursPerDay,
+      pct: hoursPct,
+      modalKey: "sessions" as ModalKey,
+      deltaText: deltaLabel(hoursPerDay - prevHoursPerDay, prevHoursPerDay, (v) => `${v.toFixed(1)} hrs`, "/day"),
+      deltaClass: deltaColor(hoursPerDay - prevHoursPerDay, prevHoursPerDay),
+      sublabel: "28-day avg · working days only",
     },
     {
       title: "Avg Payout",
       value: fmt$(avgPayout),
-      target: targetPayout !== null ? `${fmt$(targetPayout)} / session` : "–",
+      target: targetPayout !== null ? `${fmt$(targetPayout)} / session` : "No goal set",
       current: avgPayout,
-      tgt: targetPayout,
       prev: prevPayout,
-      subtitle: "4-week rolling avg",
-      modalKey: "payout",
+      pct: payoutPct,
+      modalKey: "payout" as ModalKey,
       deltaText: deltaLabel(avgPayout - prevPayout, prevPayout, fmt$, "/session"),
       deltaClass: deltaColor(avgPayout - prevPayout, prevPayout),
+      sublabel: "28-day avg · per session",
     },
   ];
 
@@ -242,31 +302,40 @@ export default function LeverCards({ sessions, activeGoal, effectiveToday }: Pro
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {cards.map((card) => (
-          <Card key={card.title} className={cn("gap-2", card.tgt !== null ? statusBg(card.current, card.tgt) : "")}>
-            <CardHeader className="pb-1">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                {card.title}
-                <TrendIcon current={card.current} prev={card.prev} />
-              </CardTitle>
+          <Card key={card.title} className={cn("gap-0", statusBorderColor(card.pct))}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {card.title}
+                </CardTitle>
+                <StatusBadge pct={card.pct} />
+              </div>
             </CardHeader>
-            <CardContent>
-              <p className={cn("text-2xl font-bold", card.tgt !== null ? statusColor(card.current, card.tgt) : "")}>
-                {card.value}
-              </p>
-              <p className={cn("text-xs font-medium mt-0.5", card.deltaClass)}>
-                {card.deltaText}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Target: {card.target}
-              </p>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+            <CardContent className="space-y-3">
+              <div className="flex items-end justify-between">
+                <p className="text-3xl font-bold leading-none">{card.value}</p>
+                <TrendIcon current={card.current} prev={card.prev} />
+              </div>
+
+              <ProgressBar pct={card.pct} />
+
+              <div className="flex items-center justify-between text-xs">
+                <span className={cn("font-medium", card.deltaClass)}>{card.deltaText}</span>
+                {card.pct !== null && (
+                  <span className="text-muted-foreground">{Math.round(card.pct)}% of goal</span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  {card.pct !== null ? `Goal: ${card.target}` : card.sublabel}
+                </p>
                 <button
                   onClick={() => setOpenModal(card.modalKey)}
                   className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 transition-colors"
                 >
                   <BarChart2 className="w-3 h-3" />
-                  View history
+                  History
                 </button>
               </div>
             </CardContent>

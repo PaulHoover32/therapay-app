@@ -96,16 +96,23 @@ export default function GoalCard({ goal }: GoalCardProps) {
                 <p className="text-2xl font-semibold">
                   ${goal.annual_income_target.toLocaleString()}
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ≈ ${Math.round(goal.annual_income_target / 260).toLocaleString()} / day
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Weekly Hours</p>
                 <p className="text-2xl font-semibold">{goal.target_weekly_hours.toFixed(1)} hrs</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ≈ {(goal.target_weekly_hours / 5).toFixed(1)} hrs / day
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Avg Payout / Session</p>
                 <p className="text-2xl font-semibold">
                   ${goal.target_avg_payout.toLocaleString()}
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">per session</p>
               </div>
             </div>
           ) : (

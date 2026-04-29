@@ -21,6 +21,9 @@ const transport = new DefaultChatTransport({
 const GREETING =
   "Ask me about anything in your practice — your earnings, payer mix, session trends, goals, or how to grow.";
 
+const GREETING_NEW_USER =
+  "Welcome! I'm your Therapay assistant. I can help set up your practice profile — things like your license type, how you bill clients, and the states you practice in. Click **\"Set up with the Therapay assistant\"** above, or just start typing.";
+
 // ─── Markdown bubble ────────────────────────────────────────────────────────
 
 function MarkdownBubble({
@@ -95,7 +98,7 @@ function MarkdownBubble({
 
 // ─── Outer shell: handles session loading + pane resizing ────────────────────
 
-export default function ChatPane() {
+export default function ChatPane({ isNewUser }: { isNewUser?: boolean }) {
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(380);
@@ -165,6 +168,7 @@ export default function ChatPane() {
           key={conversationKey}
           initialMessages={initialMessages}
           onNewConversation={newConversation}
+          greeting={isNewUser ? GREETING_NEW_USER : GREETING}
         />
       )}
     </div>
@@ -176,9 +180,11 @@ export default function ChatPane() {
 function ChatPaneInner({
   initialMessages,
   onNewConversation,
+  greeting,
 }: {
   initialMessages?: UIMessage[];
   onNewConversation: () => void;
+  greeting: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -276,7 +282,7 @@ function ChatPaneInner({
       <div ref={containerRef} className="h-full overflow-y-auto px-4 py-3">
         <div className="space-y-3">
           {/* Greeting — always shown as the first message */}
-          <MarkdownBubble text={GREETING} isUser={false} />
+          <MarkdownBubble text={greeting} isUser={false} />
 
           {messages.map((msg, msgIdx) => {
             const isUser = msg.role === "user";

@@ -28,7 +28,7 @@ export default async function ProfilePage() {
   const email = user?.email ?? "";
   const memberSince = user?.created_at ? formatMemberSince(user.created_at) : null;
   const specialties = therapist?.specialties
-    ? therapist.specialties.split(",").map((s) => s.trim()).filter(Boolean)
+    ? therapist.specialties.split(",").map((s: string) => s.trim()).filter(Boolean)
     : [];
 
   const infoFields = [
@@ -99,7 +99,7 @@ export default async function ProfilePage() {
             <p className="text-sm text-muted-foreground mb-2">Specialties</p>
             {specialties.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {specialties.map((s) => (
+                {specialties.map((s: string) => (
                   <Badge key={s} variant="secondary">{s}</Badge>
                 ))}
               </div>

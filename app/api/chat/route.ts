@@ -257,6 +257,13 @@ export async function POST(req: Request) {
               .eq("id", sessionId);
           }
 
+          // Mark onboarding complete on first goal save (no-op if already set)
+          await supabase
+            .from("therapists")
+            .update({ onboarding_completed_at: new Date().toISOString() })
+            .eq("user_id", user.id)
+            .is("onboarding_completed_at", null);
+
           return { success: true, recommendationId: recommendation.id };
         },
       }),

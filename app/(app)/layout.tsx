@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import AppHeader from "@/components/AppHeader";
 import ChatPane from "@/components/chat/ChatPane";
+import NewUserWelcome from "@/components/NewUserWelcome";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -10,14 +11,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let therapistName: string | null = null;
   let avatarUrl: string | null = null;
+  let isNewUser = false;
   if (user) {
     const { data } = await supabase
       .from("therapists")
-      .select("name, avatar_url")
+      .select("name, avatar_url, onboarding_completed_at")
       .eq("user_id", user.id)
       .single();
     therapistName = data?.name ?? null;
     avatarUrl = data?.avatar_url ?? null;
+    isNewUser = !data?.onboarding_completed_at;
   }
 
   return (
@@ -25,9 +28,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar avatarUrl={avatarUrl} />
       <SidebarInset className="flex-1 min-w-0 overflow-y-auto">
         <AppHeader name={therapistName} />
+        {isNewUser && <NewUserWelcome userId={user!.id} />}
         {children}
       </SidebarInset>
-      <ChatPane />
+      <ChatPane isNewUser={isNewUser} />
     </SidebarProvider>
   );
 }

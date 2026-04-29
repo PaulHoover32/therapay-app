@@ -32,6 +32,18 @@ function buildSystemPrompt(ctx: TherapistContext): string {
     `Working days/week (inferred): ${ctx.effectiveDaysPerWeek.toFixed(1)}`,
   ].join("\n- ");
 
+  const practiceBlock = [
+    ctx.specialties ? `Specialties: ${ctx.specialties}` : "Specialties: not set",
+    ctx.yearsLicensed ? `Years licensed: ${ctx.yearsLicensed}` : "Years licensed: not set",
+    ctx.licenseType ? `License type: ${ctx.licenseType}` : "License type: not set",
+    ctx.practiceModel ? `Practice model: ${ctx.practiceModel}` : "Practice model: not set",
+    ctx.states?.length ? `Licensed states: ${ctx.states.join(", ")}` : "Licensed states: not set",
+  ].join("\n- ");
+
+  const licensureCodesBlock = ctx.validLicensureCodes.length
+    ? ctx.validLicensureCodes.join(", ")
+    : "LCSW, LICSW, LMFT, LPC, LPCC, LMHC, LCPC, PsyD, PhD, PMHNP, AMFT, ACSW, CADC, LADC";
+
   return `You are a financial advisor for independent (1099) therapists. Help them understand their practice performance, analyze their data, and set achievable financial goals.
 
 ## Therapist: ${ctx.name}
@@ -41,6 +53,13 @@ function buildSystemPrompt(ctx: TherapistContext): string {
 - Weeks remaining in ${now.getFullYear()}: ${ctx.weeksRemainingInYear}
 - ${goalBlock}
 - Industry benchmarks: median gross $75k–$110k/yr; avg session $115–$145 (mixed payer); full-time ~20–25 hrs/week
+
+## Practice Profile
+- ${practiceBlock}
+
+Use these fields to personalize advice — e.g. factor in specialty norms when discussing payer mix or session rates, and use years licensed to contextualize career stage.
+
+Valid license type codes (use exactly as written): ${licensureCodesBlock}
 
 ## Dashboard Metrics (last 28 days vs. prior 28 days — matches cards exactly)
 - ${dailyBlock}
@@ -64,7 +83,22 @@ id TEXT, created_at TEXT, annual_income_target REAL, target_weekly_hours REAL, t
 - Always cite specific numbers from query results in your responses.
 - To set a goal: discuss options, get explicit confirmation, then call \`saveGoals\`.
 - Be concise — therapists are busy.
-- No tax, legal, or clinical advice. AI outputs are advisory only.`;
+- No tax, legal, or clinical advice. AI outputs are advisory only.
+
+## Practice Info Setup Flow
+When the therapist asks to set up or update their practice profile:
+1. Use the \`web_search\` tool to search for "${ctx.name} therapist" to try to find their public profile (Psychology Today, TherapyDen, practice website, etc.)
+2. Present what you found in a clear, friendly summary — specialties, years licensed, and any profile photo if discoverable
+3. If you found a profile photo URL, offer to set it as their avatar and call \`setAvatarFromUrl\` if they agree (or if they say yes to setting up their full profile)
+4. Ask them to confirm or correct the practice info values
+5. Once confirmed, call \`updatePracticeInfo\` to save
+
+If nothing useful is found via web search, just ask them directly.
+
+## Account Management Flow
+When the therapist asks to change their email or password:
+- **Email change:** confirm the new address, then call \`updateAccount\`. Remind them a confirmation email goes to both their old and new address.
+- **Password change:** never collect the password in chat. Instead, call \`sendPasswordReset\` to email them a secure reset link.`;
 }
 
 export async function POST(req: Request) {
@@ -225,6 +259,124 @@ export async function POST(req: Request) {
 
           return { success: true, recommendationId: recommendation.id };
         },
+      }),
+
+      updatePracticeInfo: tool({
+        description:
+          "Update the therapist's practice info after they have confirmed the values are correct. All fields are optional — only pass the ones being updated.",
+        inputSchema: z.object({
+          specialties: z
+            .string()
+            .optional()
+            .describe("Comma-separated list of specialties, e.g. 'Trauma, Anxiety, CBT'"),
+          years_licensed: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Number of years the therapist has been licensed"),
+          license_type: z
+            .string()
+            .optional()
+            .describe(`License type code — must be one of the valid codes listed in the system prompt (e.g. LCSW, LMFT, LPC)`),
+          practice_model: z
+            .string()
+            .optional()
+            .describe("Practice model, e.g. Solo private practice, Group practice, Agency"),
+          states: z
+            .array(z.string())
+            .optional()
+            .describe("List of US state abbreviations where the therapist is licensed, e.g. ['CA', 'NY']"),
+        }),
+        execute: async ({ specialties, years_licensed, license_type, practice_model, states }) => {
+          const updates: Record<string, string | number | string[]> = {};
+          if (specialties !== undefined) updates.specialties = specialties;
+          if (years_licensed !== undefined) updates.years_licensed = years_licensed;
+          if (license_type !== undefined) updates.license_type = license_type;
+          if (practice_model !== undefined) updates.practice_model = practice_model;
+          if (states !== undefined) updates.states = states;
+
+          const { error } = await supabase
+            .from("therapists")
+            .update(updates)
+            .eq("user_id", user.id);
+          if (error) {
+            console.error("Failed to update practice info:", error);
+            return { success: false, error: error.message };
+          }
+          return { success: true };
+        },
+      }),
+
+      updateAccount: tool({
+        description:
+          "Update the therapist's email address after they have explicitly confirmed the new email.",
+        inputSchema: z.object({
+          new_email: z.string().email().describe("New email address"),
+        }),
+        execute: async ({ new_email }) => {
+          const { error } = await supabase.auth.updateUser({ email: new_email });
+          if (error) {
+            console.error("Failed to update email:", error);
+            return { success: false, error: error.message };
+          }
+          return { success: true };
+        },
+      }),
+
+      sendPasswordReset: tool({
+        description:
+          "Send a password reset email to the therapist's registered email address. Use this when they want to change their password — never collect the password in chat.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const { error } = await supabase.auth.resetPasswordForEmail(user.email!);
+          if (error) {
+            console.error("Failed to send password reset:", error);
+            return { success: false, error: error.message };
+          }
+          return { success: true };
+        },
+      }),
+
+      setAvatarFromUrl: tool({
+        description:
+          "Download a profile photo from a URL and set it as the therapist's avatar. Use this when a photo is found during web search and the therapist agrees to use it.",
+        inputSchema: z.object({
+          image_url: z.string().url().describe("Direct URL of the profile photo to download"),
+        }),
+        execute: async ({ image_url }) => {
+          try {
+            const response = await fetch(image_url);
+            if (!response.ok) return { success: false, error: "Could not fetch image" };
+
+            const buffer = await response.arrayBuffer();
+            const contentType = response.headers.get("content-type") ?? "image/jpeg";
+            const ext = contentType.split("/")[1]?.split(";")[0] ?? "jpg";
+            const path = `${user.id}/avatar.${ext}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from("avatars")
+              .upload(path, buffer, { upsert: true, contentType });
+
+            if (uploadError) {
+              console.error("Avatar upload failed:", uploadError);
+              return { success: false, error: uploadError.message };
+            }
+
+            const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+            const urlWithBust = `${publicUrl}?t=${Date.now()}`;
+
+            await supabase.from("therapists").update({ avatar_url: urlWithBust }).eq("user_id", user.id);
+
+            return { success: true };
+          } catch (e) {
+            return { success: false, error: (e as Error).message };
+          }
+        },
+      }),
+
+      web_search: anthropic.tools.webSearch_20250305({
+        maxUses: 5,
       }),
     },
   });

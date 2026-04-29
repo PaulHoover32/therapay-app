@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useChatStore } from "@/store/chatStore";
+import AssistantCTA from "@/components/AssistantCTA";
 
 interface GoalCardProps {
   goal: Goal | null;
@@ -25,7 +25,6 @@ interface GoalCardProps {
 
 export default function GoalCard({ goal }: GoalCardProps) {
   const router = useRouter();
-  const triggerStarter = useChatStore((s) => s.triggerStarter);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
 
@@ -79,13 +78,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
                 Clear
               </Button>
             )}
-            <Button
-              size="sm"
-              className="bg-violet-600 hover:bg-violet-500 text-white"
-              onClick={() => triggerStarter("Model scenarios and set goals")}
-            >
-              Get AI Recommendation
-            </Button>
+            <AssistantCTA starter="Model scenarios and set goals" label="Get AI Recommendation" />
           </div>
         </CardHeader>
         <CardContent>

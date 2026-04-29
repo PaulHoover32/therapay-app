@@ -27,6 +27,12 @@ export interface TherapistContext {
   name: string;
   therapistId: string | undefined;
   avgSessionDuration: number;
+  specialties: string | null;
+  yearsLicensed: number | null;
+  licenseType: string | null;
+  practiceModel: string | null;
+  states: string[] | null;
+  validLicensureCodes: string[];
   ytdRevenue: number;
   effectiveYear: number;
   avgWeeklyHours: number;
@@ -60,7 +66,7 @@ export async function getTherapistContext(
   // Fetch therapist profile (single query)
   const { data: therapist } = await supabase
     .from("therapists")
-    .select("id, name, avg_session_duration")
+    .select("id, name, avg_session_duration, specialties, years_licensed, license_type, practice_model, states")
     .eq("user_id", userId)
     .single();
 
@@ -69,8 +75,8 @@ export async function getTherapistContext(
 
   const now = new Date();
 
-  // Fetch ALL sessions (no year filter) + reference payers in parallel
-  const [{ data: rawSessions }, { data: refPayers }] = await Promise.all([
+  // Fetch ALL sessions (no year filter) + reference payers + reference licensures in parallel
+  const [{ data: rawSessions }, { data: refPayers }, { data: refLicensures }] = await Promise.all([
     therapistId
       ? supabase
           .from("sessions")
@@ -82,6 +88,10 @@ export async function getTherapistContext(
       .from("reference_payers")
       .select("name, payment_option")
       .eq("active", true),
+    supabase
+      .from("reference_licensures")
+      .select("code")
+      .order("sort_order", { ascending: true }),
   ]);
 
   const allSessions: { amount: number; session_datetime: string; session_duration: number; payer: string }[] =
@@ -207,6 +217,12 @@ export async function getTherapistContext(
     name: therapist?.name ?? "therapist",
     therapistId,
     avgSessionDuration,
+    specialties: therapist?.specialties ?? null,
+    yearsLicensed: therapist?.years_licensed ?? null,
+    licenseType: therapist?.license_type ?? null,
+    practiceModel: therapist?.practice_model ?? null,
+    states: therapist?.states ?? null,
+    validLicensureCodes: (refLicensures ?? []).map((l: { code: string }) => l.code),
     ytdRevenue,
     effectiveYear,
     avgWeeklyHours,

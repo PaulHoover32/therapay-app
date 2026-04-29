@@ -154,6 +154,24 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_licensures: {
+        Row: {
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       reference_payers: {
         Row: {
           active: boolean
@@ -249,27 +267,45 @@ export type Database = {
       therapists: {
         Row: {
           avg_session_duration: number
+          avatar_url: string | null
           created_at: string
           email: string
           id: string
+          license_type: string | null
           name: string
+          practice_model: string | null
+          specialties: string | null
+          states: string[] | null
           user_id: string
+          years_licensed: number | null
         }
         Insert: {
           avg_session_duration?: number
+          avatar_url?: string | null
           created_at?: string
           email: string
           id?: string
+          license_type?: string | null
           name: string
+          practice_model?: string | null
+          specialties?: string | null
+          states?: string[] | null
           user_id: string
+          years_licensed?: number | null
         }
         Update: {
           avg_session_duration?: number
+          avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
+          license_type?: string | null
           name?: string
+          practice_model?: string | null
+          specialties?: string | null
+          states?: string[] | null
           user_id?: string
+          years_licensed?: number | null
         }
         Relationships: []
       }

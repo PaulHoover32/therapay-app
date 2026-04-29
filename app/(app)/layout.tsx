@@ -9,18 +9,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
 
   let therapistName: string | null = null;
+  let avatarUrl: string | null = null;
   if (user) {
     const { data } = await supabase
       .from("therapists")
-      .select("name")
+      .select("name, avatar_url")
       .eq("user_id", user.id)
       .single();
     therapistName = data?.name ?? null;
+    avatarUrl = data?.avatar_url ?? null;
   }
 
   return (
     <SidebarProvider defaultOpen={false} className="h-full overflow-hidden">
-      <AppSidebar />
+      <AppSidebar avatarUrl={avatarUrl} />
       <SidebarInset className="flex-1 min-w-0 overflow-y-auto">
         <AppHeader name={therapistName} />
         {children}

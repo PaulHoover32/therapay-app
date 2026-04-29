@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, BarChart2, Target, UserCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, Target, UserCircle, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,15 +14,19 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard",    href: "/dashboard" },
-  { icon: BarChart2,       label: "Intelligence", href: "/intelligence" },
-  { icon: Target,          label: "Planner",      href: "/planner" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: Target,          label: "Planner",   href: "/planner" },
 ];
 
-export default function AppSidebar() {
+interface AppSidebarProps {
+  avatarUrl: string | null;
+}
+
+export default function AppSidebar({ avatarUrl }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpen } = useSidebar();
@@ -33,6 +37,15 @@ export default function AppSidebar() {
     router.push("/login");
     router.refresh();
   }
+
+  const ProfileIcon = avatarUrl
+    ? () => (
+        <Avatar className="h-4 w-4">
+          <AvatarImage src={avatarUrl} alt="Profile" className="object-cover" />
+          <AvatarFallback><UserCircle className="h-4 w-4" /></AvatarFallback>
+        </Avatar>
+      )
+    : UserCircle;
 
   return (
     <Sidebar
@@ -72,7 +85,7 @@ export default function AppSidebar() {
               tooltip="Profile"
             >
               <Link href="/profile">
-                <UserCircle />
+                <ProfileIcon />
                 <span>Profile</span>
               </Link>
             </SidebarMenuButton>

@@ -33,6 +33,7 @@ export interface TherapistContext {
   practiceModel: string | null;
   states: string[] | null;
   validLicensureCodes: string[];
+  validPayerNames: string[];
   ytdRevenue: number;
   effectiveYear: number;
   avgWeeklyHours: number;
@@ -223,6 +224,7 @@ export async function getTherapistContext(
     practiceModel: therapist?.practice_model ?? null,
     states: therapist?.states ?? null,
     validLicensureCodes: (refLicensures ?? []).map((l: { code: string }) => l.code),
+    validPayerNames: (refPayers ?? []).map((p: { name: string }) => p.name),
     ytdRevenue,
     effectiveYear,
     avgWeeklyHours,

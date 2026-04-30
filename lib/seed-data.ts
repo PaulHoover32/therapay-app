@@ -4,6 +4,8 @@ export const seedProfile: TherapistProfile = {
   id: "seed-therapist-1",
   name: "Dr. Sarah Chen",
   avg_session_duration: 50,
+  license_type: "LCSW",
+  specialties: "Trauma, Anxiety",
 };
 
 export const seedSessions: Session[] = [

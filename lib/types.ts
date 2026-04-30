@@ -23,6 +23,8 @@ export interface TherapistProfile {
   id: string;
   name: string;
   avg_session_duration: number;
+  license_type: string | null;
+  specialties: string | null;
 }
 
 export interface ReferencePayer {

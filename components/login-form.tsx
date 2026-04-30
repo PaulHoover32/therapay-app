@@ -110,12 +110,6 @@ export function LoginForm({
   if (mode === "check-email") {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Therapay</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Track and project your therapy practice earnings
-          </p>
-        </div>
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
@@ -148,13 +142,6 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Therapay</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Track and project your therapy practice earnings
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>{mode === "signin" ? "Sign in" : "Create account"}</CardTitle>

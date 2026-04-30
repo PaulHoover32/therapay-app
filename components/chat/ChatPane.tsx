@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
-import { Send, SquarePen, ArrowDown } from "lucide-react";
+import { Send, SquarePen, ArrowDown, Paperclip } from "lucide-react";
+import ChatChartMessage from "./ChatChartMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/store/chatStore";
@@ -186,16 +188,20 @@ function ChatPaneInner({
   onNewConversation: () => void;
   greeting: string;
 }) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<UIMessage[]>(initialMessages ?? []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { messages, sendMessage, status } = useChat({
     transport,
     messages: initialMessages,
     onFinish: () => {
+      router.refresh();
       const sessionId = useChatStore.getState().currentSessionId;
       if (!sessionId) return;
       createSupabaseBrowserClient()
@@ -248,6 +254,22 @@ function ChatPaneInner({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     handleSend(input);
+  }
+
+  async function handleFile(file: File) {
+    try {
+      const text = await file.text();
+      handleSend(`I'd like to import sessions from this file (${file.name}):\n\n${text}`);
+    } catch {
+      // file.text() failed — likely a binary format
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
   }
 
   const isStreaming = status === "streaming" || status === "submitted";
@@ -304,7 +326,16 @@ function ChatPaneInner({
                     );
                   }
 
-                  // Tool parts render nothing — LLM communicates results in text
+                  // Render charts from renderChart tool results
+                  if (
+                    !isUser &&
+                    p.type === "tool-renderChart" &&
+                    p.state === "output-available"
+                  ) {
+                    return <ChatChartMessage key={partIdx} spec={p.output} />;
+                  }
+
+                  // All other tool parts render nothing — LLM communicates results in text
                   if (!isUser && typeof p.type === "string" && p.type.startsWith("tool-")) {
                     return null;
                   }
@@ -333,12 +364,38 @@ function ChatPaneInner({
       </div>
 
       {/* Input footer */}
-      <div className="p-3 border-t shrink-0">
+      <div
+        className={cn("p-3 border-t shrink-0 transition-colors", isDragging && "bg-violet-950/50")}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="text-xs text-violet-400 text-center mb-2">Drop file to import sessions</div>
+        )}
         <form onSubmit={handleSubmit} className="flex w-full gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.tsv,.txt,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming}
+            title="Import session file"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Message..."
+            placeholder="Message or drop a file to import sessions..."
             className="flex-1 h-9 text-sm"
             disabled={isStreaming}
           />

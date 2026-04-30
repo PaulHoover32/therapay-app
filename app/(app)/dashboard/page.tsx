@@ -29,7 +29,7 @@ export default async function Home() {
 
   const { data: therapist } = await supabase
     .from("therapists")
-    .select("id, name, avg_session_duration")
+    .select("id, name, avg_session_duration, license_type, specialties")
     .eq("user_id", user.id)
     .single();
 

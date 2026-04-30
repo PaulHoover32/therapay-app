@@ -44,6 +44,10 @@ function buildSystemPrompt(ctx: TherapistContext): string {
     ? ctx.validLicensureCodes.join(", ")
     : "LCSW, LICSW, LMFT, LPC, LPCC, LMHC, LCPC, PsyD, PhD, PMHNP, AMFT, ACSW, CADC, LADC";
 
+  const payerNamesBlock = ctx.validPayerNames.length
+    ? ctx.validPayerNames.join(", ")
+    : "BlueCross BlueShield, Aetna, Cigna, United Healthcare, Self-Pay";
+
   return `You are a financial advisor for independent (1099) therapists. Help them understand their practice performance, analyze their data, and set achievable financial goals.
 
 ## Therapist: ${ctx.name}
@@ -81,9 +85,20 @@ id TEXT, created_at TEXT, annual_income_target REAL, target_weekly_hours REAL, t
 ## Instructions
 - Analyze freely. Use \`queryData\` whenever a question requires data you don't already have from the summary above.
 - Always cite specific numbers from query results in your responses.
+- After a \`queryData\` that returns time-series or categorical data worth visualizing, call \`renderChart\` to show it inline — don't just describe the data in text.
 - To set a goal: discuss options, get explicit confirmation, then call \`saveGoals\`.
 - Be concise — therapists are busy.
 - No tax, legal, or clinical advice. AI outputs are advisory only.
+
+## Chart Guidelines
+Use \`renderChart\` when data has a natural visual form:
+- **bar** — comparisons across categories (payer mix by revenue, monthly totals, session counts by code)
+- **area** — cumulative or trended values over time (YTD revenue, rolling averages)
+- **line** — multiple metrics over time (revenue vs. hours by week)
+- Colors: use "var(--chart-1)" through "var(--chart-5)" for series
+- Keep x-axis labels short: "Jan" not "January 2024", "BCBS" not "BlueCross BlueShield"
+- Set \`valuePrefix\` to "$" for revenue/dollar series
+- Do not render charts for simple 1–2 number answers — use text
 
 ## Practice Info Setup Flow
 When the therapist asks to set up or update their practice profile:
@@ -94,6 +109,24 @@ When the therapist asks to set up or update their practice profile:
 5. Once confirmed, call \`updatePracticeInfo\` to save
 
 If nothing useful is found via web search, just ask them directly.
+
+## Valid Payer Names
+When importing sessions, the \`payer\` field must exactly match one of these names:
+${payerNamesBlock}
+
+Map ambiguous values (e.g. "BCBS", "blue cross", "self pay") to the closest match and show your mappings before inserting.
+
+## Session Import Flow
+When the user sends session data to import (any format — CSV, TSV, pasted table, plain text):
+1. Extract every session, parsing out: session_datetime (ISO 8601), amount (dollars), session_code (valid CPT: 90837 individual 53min, 90834 individual 45min, 90847 couples, 90853 group, 90791 intake), state (2-letter abbreviation), payer (map to exact reference name).
+2. Present a pre-insert summary:
+   - Total sessions, date range, total revenue
+   - A sample table of the first 5 rows
+   - Any uncertain mappings explicitly called out (e.g. "I mapped 'BCBS' → 'BlueCross BlueShield' — please confirm")
+   - Rows you could not confidently parse, listed separately
+3. Ask for explicit confirmation before inserting.
+4. Call \`bulkInsertSessions\` with all confidently-parsed sessions. Hold back rows you flagged as uncertain unless the user explicitly says to include them.
+5. After success, tell the therapist how many sessions were inserted, how many (if any) were skipped, and to review their session ledger closely to catch anything that looks wrong.
 
 ## Account Management Flow
 When the therapist asks to change their email or password:
@@ -379,6 +412,56 @@ export async function POST(req: Request) {
           } catch (e) {
             return { success: false, error: (e as Error).message };
           }
+        },
+      }),
+
+      renderChart: tool({
+        description:
+          "Render a chart inline in the chat to visualize query results. Call this after queryData when the data has a natural visual form.",
+        inputSchema: z.object({
+          type: z.enum(["bar", "line", "area"]),
+          title: z.string(),
+          description: z.string().optional(),
+          data: z.array(z.record(z.string(), z.union([z.string(), z.number()]))),
+          xKey: z.string().describe("Key in each data object to use as the x-axis"),
+          series: z.array(
+            z.object({
+              key: z.string().describe("Key in each data object for this series"),
+              label: z.string().describe("Human-readable series label"),
+              color: z.string().optional().describe('CSS var, e.g. "var(--chart-1)"'),
+            })
+          ).min(1),
+          valuePrefix: z.string().optional().describe('Prefix for y-axis ticks, e.g. "$"'),
+        }),
+        execute: async (spec) => spec,
+      }),
+
+      bulkInsertSessions: tool({
+        description:
+          "Batch insert historical therapy sessions. Only call after presenting the parsed sessions to the therapist and receiving explicit confirmation.",
+        inputSchema: z.object({
+          sessions: z
+            .array(
+              z.object({
+                session_datetime: z.string().describe("ISO 8601 datetime, e.g. '2024-03-15T14:00:00'"),
+                amount: z.number().positive().describe("Session fee in dollars"),
+                session_code: z.enum(["90837", "90834", "90847", "90853", "90791"]),
+                state: z.string().length(2).describe("US state abbreviation, e.g. 'CA'"),
+                payer: z.string().describe("Must exactly match a valid reference payer name"),
+              })
+            )
+            .min(1)
+            .max(500),
+        }),
+        execute: async ({ sessions }) => {
+          if (!ctx.therapistId) return { success: false, error: "Therapist profile not found." };
+          const rows = sessions.map((s) => ({ ...s, therapist_id: ctx.therapistId }));
+          const { error } = await supabase.from("sessions").insert(rows);
+          if (error) {
+            console.error("Bulk session insert failed:", error);
+            return { success: false, error: error.message };
+          }
+          return { success: true, insertedCount: sessions.length };
         },
       }),
 

@@ -1,20 +1,5 @@
-import { TherapistProfile, Session, Goal, Recommendation } from "@/lib/types";
-import { seedProfile, seedSessions } from "@/lib/seed-data";
+import { Goal, Recommendation } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
-
-export async function getTherapistProfile(): Promise<TherapistProfile> {
-  return seedProfile;
-}
-
-export async function getSessionLogs(): Promise<Session[]> {
-  return seedSessions;
-}
-
-export async function getSessionById(id: string): Promise<Session> {
-  const session = seedSessions.find((s) => s.id === id);
-  if (!session) throw new Error(`Session not found: ${id}`);
-  return session;
-}
 
 export interface PayerTypeSummary {
   type: string;
@@ -81,7 +66,7 @@ export async function getTherapistContext(
     therapistId
       ? supabase
           .from("sessions")
-          .select("amount, session_datetime, session_duration, payer")
+          .select("amount, session_datetime, session_code, payer")
           .eq("therapist_id", therapistId)
           .order("session_datetime", { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -95,7 +80,7 @@ export async function getTherapistContext(
       .order("sort_order", { ascending: true }),
   ]);
 
-  const allSessions: { amount: number; session_datetime: string; session_duration: number; payer: string }[] =
+  const allSessions: { amount: number; session_datetime: string; session_code: string; payer: string }[] =
     rawSessions ?? [];
 
   // effectiveToday: use last session date as anchor for stale therapists
@@ -117,7 +102,7 @@ export async function getTherapistContext(
     const d = new Date(s.session_datetime);
     return d >= fourWeeksAgo && d <= effectiveToday;
   });
-  const avgWeeklyHours = recent.reduce((sum, s) => sum + s.session_duration, 0) / 60 / 4;
+  const avgWeeklyHours = (recent.length * avgSessionDuration) / 60 / 4;
   const avgPayoutPerSession =
     recent.length > 0
       ? recent.reduce((sum, s) => sum + s.amount, 0) / recent.length
@@ -185,8 +170,8 @@ export async function getTherapistContext(
   const priorDays = countWorkingDays(priorPeriod);
   const currentPeriodRevenue = currentPeriod.reduce((sum, s) => sum + s.amount, 0);
   const priorPeriodRevenue = priorPeriod.reduce((sum, s) => sum + s.amount, 0);
-  const currentPeriodHours = currentPeriod.reduce((sum, s) => sum + s.session_duration / 60, 0);
-  const priorPeriodHours = priorPeriod.reduce((sum, s) => sum + s.session_duration / 60, 0);
+  const currentPeriodHours = (currentPeriod.length * avgSessionDuration) / 60;
+  const priorPeriodHours = (priorPeriod.length * avgSessionDuration) / 60;
   const revenuePerDay = currentDays > 0 ? currentPeriodRevenue / currentDays : 0;
   const prevRevenuePerDay = priorDays > 0 ? priorPeriodRevenue / priorDays : 0;
   const hoursPerDay = currentDays > 0 ? currentPeriodHours / currentDays : 0;

@@ -1,5 +1,6 @@
 import { parseISO, eachWeekOfInterval, startOfYear, endOfYear, format } from "date-fns";
 import { Session } from "./types";
+import { getMonday, weekKey } from "./date-utils";
 
 // ─── Industry seasonal indices ────────────────────────────────────────────────
 // 52 entries (index 0 = first calendar week of the year).
@@ -49,19 +50,6 @@ export interface WeeklyPoint {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getMonday(d: Date): Date {
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-
-function weekKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 // ─── Weighted linear regression ───────────────────────────────────────────────
 

@@ -56,7 +56,7 @@ function buildSystemPrompt(ctx: TherapistContext): string {
 - Prior year revenue: ${priorYearBlock}
 - Weeks remaining in ${now.getFullYear()}: ${ctx.weeksRemainingInYear}
 - ${goalBlock}
-- Industry benchmarks: median gross $75k–$110k/yr; avg session $115–$145 (mixed payer); full-time ~20–25 hrs/week
+- Industry benchmarks: use \`web_search\` to look these up when relevant (see ## Industry Benchmarks below)
 
 ## Practice Profile
 - ${practiceBlock}
@@ -84,21 +84,11 @@ id TEXT, created_at TEXT, annual_income_target REAL, target_weekly_hours REAL, t
 
 ## Instructions
 - Analyze freely. Use \`queryData\` whenever a question requires data you don't already have from the summary above.
+- **Always write aggregate queries** — use GROUP BY, SUM, COUNT, AVG, etc. Never SELECT * or fetch raw rows unless the user explicitly asks to see individual sessions. A query should return ≤20 rows.
 - Always cite specific numbers from query results in your responses.
-- After a \`queryData\` that returns time-series or categorical data worth visualizing, call \`renderChart\` to show it inline — don't just describe the data in text.
 - To set a goal: discuss options, get explicit confirmation, then call \`saveGoals\`.
 - Be concise — therapists are busy.
 - No tax, legal, or clinical advice. AI outputs are advisory only.
-
-## Chart Guidelines
-Use \`renderChart\` when data has a natural visual form:
-- **bar** — comparisons across categories (payer mix by revenue, monthly totals, session counts by code)
-- **area** — cumulative or trended values over time (YTD revenue, rolling averages)
-- **line** — multiple metrics over time (revenue vs. hours by week)
-- Colors: use "var(--chart-1)" through "var(--chart-5)" for series
-- Keep x-axis labels short: "Jan" not "January 2024", "BCBS" not "BlueCross BlueShield"
-- Set \`valuePrefix\` to "$" for revenue/dollar series
-- Do not render charts for simple 1–2 number answers — use text
 
 ## Practice Info Setup Flow
 When the therapist asks to set up or update their practice profile:
@@ -127,6 +117,16 @@ When the user sends session data to import (any format — CSV, TSV, pasted tabl
 3. Ask for explicit confirmation before inserting.
 4. Call \`bulkInsertSessions\` with all confidently-parsed sessions. Hold back rows you flagged as uncertain unless the user explicitly says to include them.
 5. After success, tell the therapist how many sessions were inserted, how many (if any) were skipped, and to review their session ledger closely to catch anything that looks wrong.
+
+## Industry Benchmarks
+When a conversation involves goal-setting, comparing performance to peers, or evaluating rates:
+1. Use \`web_search\` to find current, credible benchmark data. Tailor your query to the therapist's profile — for example:
+   - "${ctx.licenseType ?? "therapist"} private practice income ${ctx.states?.[0] ?? "US"}"
+   - "${ctx.specialties ? ctx.specialties.split(",")[0].trim() + " therapist" : "therapist"} session rate ${ctx.states?.[0] ?? ""}"
+   - "therapist self-pay rate ${ctx.states?.[0] ?? "US"} ${new Date().getFullYear()}"
+2. Cite your sources with markdown links so the therapist can click through, e.g. "[Psychology Today survey](https://...)".
+3. Acknowledge when data is from a specific year or region and may not perfectly match their situation.
+4. Do not fabricate benchmark numbers — only cite what you find.
 
 ## Account Management Flow
 When the therapist asks to change their email or password:
@@ -415,26 +415,6 @@ export async function POST(req: Request) {
         },
       }),
 
-      renderChart: tool({
-        description:
-          "Render a chart inline in the chat to visualize query results. Call this after queryData when the data has a natural visual form.",
-        inputSchema: z.object({
-          type: z.enum(["bar", "line", "area"]),
-          title: z.string(),
-          description: z.string().optional(),
-          data: z.array(z.record(z.string(), z.union([z.string(), z.number()]))),
-          xKey: z.string().describe("Key in each data object to use as the x-axis"),
-          series: z.array(
-            z.object({
-              key: z.string().describe("Key in each data object for this series"),
-              label: z.string().describe("Human-readable series label"),
-              color: z.string().optional().describe('CSS var, e.g. "var(--chart-1)"'),
-            })
-          ).min(1),
-          valuePrefix: z.string().optional().describe('Prefix for y-axis ticks, e.g. "$"'),
-        }),
-        execute: async (spec) => spec,
-      }),
 
       bulkInsertSessions: tool({
         description:

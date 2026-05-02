@@ -1,18 +1,11 @@
 # Therapay — Claude Instructions
 
-## SCOPE: This window — authenticated app only
+## SCOPE: Full repo
 
 ### Own:
-- `app/(app)/` — dashboard and all app routes
-- `app/login/` — login page
-- `app/layout.tsx`, `app/globals.css` — root layout/styles
-- `app/api/` — API routes
-- `components/` (excluding `components/marketing/`)
+- `app/` — all routes (app, marketing, login, api)
+- `components/` — all components including marketing
 - `lib/`, `proxy.ts`
-
-### Do NOT touch:
-- `app/(marketing)/` — owned by the marketing window
-- `components/marketing/`
 
 ---
 

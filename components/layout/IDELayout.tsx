@@ -9,7 +9,9 @@ import BottomPane from "./BottomPane";
 
 export default function IDELayout({ isNewUser }: { isNewUser: boolean }) {
   const [leftWidth, setLeftWidth] = useState(220);
-  const [rightWidth, setRightWidth] = useState(260);
+  const [rightWidth, setRightWidth] = useState(
+    typeof window !== "undefined" ? Math.round(window.innerWidth * 0.25) : 380,
+  );
   const [bottomHeight, setBottomHeight] = useState(380);
 
   function startResize(

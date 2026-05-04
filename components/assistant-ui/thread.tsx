@@ -48,12 +48,12 @@ import {
 } from "lucide-react";
 import { type FC, useRef } from "react";
 
-export const Thread: FC<{ greeting?: string; onFile?: (file: File) => void }> = ({ greeting, onFile }) => {
+export const Thread: FC<{ greeting?: string; onFile?: (file: File) => void; fullWidth?: boolean }> = ({ greeting, onFile, fullWidth }) => {
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full flex-col bg-background"
       style={{
-        ["--thread-max-width" as string]: "44rem",
+        ["--thread-max-width" as string]: fullWidth ? "100%" : "44rem",
         ["--composer-radius" as string]: "24px",
         ["--composer-padding" as string]: "10px",
       }}

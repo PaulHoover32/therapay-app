@@ -146,7 +146,7 @@ function BottomPaneInner({
           </Button>
         </div>
         <div className="flex-1 min-h-0">
-          <Thread greeting={greeting} onFile={handleFile} />
+          <Thread greeting={greeting} onFile={handleFile} fullWidth />
         </div>
       </div>
     </AssistantRuntimeProvider>

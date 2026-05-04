@@ -41,7 +41,7 @@ export default function IDELayout({ isNewUser }: { isNewUser: boolean }) {
 
       {/* Main content area */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left pane */}
+        {/* Left pane — full height */}
         <div
           style={{ width: leftWidth }}
           className="shrink-0 border-r overflow-hidden flex flex-col"
@@ -55,9 +55,26 @@ export default function IDELayout({ isNewUser }: { isNewUser: boolean }) {
           className="w-1 shrink-0 cursor-col-resize hover:bg-primary/40 transition-colors"
         />
 
-        {/* Center pane */}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <CenterPane />
+        {/* Center + bottom column */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          {/* Center pane */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CenterPane />
+          </div>
+
+          {/* Bottom resize handle */}
+          <div
+            onMouseDown={(e) => startResize(e, "y", bottomHeight, setBottomHeight, 250, 600, true)}
+            className="h-1 shrink-0 cursor-row-resize hover:bg-primary/40 transition-colors border-t"
+          />
+
+          {/* Bottom pane */}
+          <div
+            style={{ height: bottomHeight }}
+            className="shrink-0 border-t overflow-hidden flex flex-col"
+          >
+            <BottomPane isNewUser={isNewUser} />
+          </div>
         </div>
 
         {/* Right resize handle */}
@@ -66,27 +83,13 @@ export default function IDELayout({ isNewUser }: { isNewUser: boolean }) {
           className="w-1 shrink-0 cursor-col-resize hover:bg-primary/40 transition-colors"
         />
 
-        {/* Right pane */}
+        {/* Right pane — full height */}
         <div
           style={{ width: rightWidth }}
           className="shrink-0 border-l overflow-hidden flex flex-col"
         >
           <RightPane />
         </div>
-      </div>
-
-      {/* Bottom resize handle */}
-      <div
-        onMouseDown={(e) => startResize(e, "y", bottomHeight, setBottomHeight, 250, 600, true)}
-        className="h-1 shrink-0 cursor-row-resize hover:bg-primary/40 transition-colors border-t"
-      />
-
-      {/* Bottom pane */}
-      <div
-        style={{ height: bottomHeight }}
-        className="shrink-0 border-t overflow-hidden flex flex-col"
-      >
-        <BottomPane isNewUser={isNewUser} />
       </div>
     </div>
   );

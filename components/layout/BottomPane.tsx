@@ -77,7 +77,7 @@ function BottomPaneInner({
   const chatHelpers = useChat({
     transport,
     messages: initialMessages,
-    onFinish: ({ message }) => {
+    onFinish: ({ message, messages }) => {
       // Detect showView tool calls and update the view store
       let hasViewNote = false;
       for (const part of message.parts) {
@@ -92,17 +92,17 @@ function BottomPaneInner({
           }
         }
       }
-      // Always add a note from the assistant's text if showView didn't provide one
+      // Add a note from the user's message that prompted this response
       if (!hasViewNote) {
-        const text = message.parts
+        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+        const userText = lastUserMsg?.parts
           .filter((p) => p.type === "text")
           .map((p) => (p as { type: "text"; text: string }).text)
-          .join("");
-        const firstLine = text.split("\n").find((l) => l.trim().length > 20)?.trim();
-        const note = firstLine
-          ? firstLine.length > 80 ? firstLine.slice(0, 80) + "…" : firstLine
-          : null;
-        if (note) addNote(note);
+          .join("")
+          .trim();
+        if (userText) {
+          addNote(userText.length > 80 ? userText.slice(0, 80) + "…" : userText);
+        }
       }
       router.refresh();
       const sessionId = useChatStore.getState().currentSessionId;

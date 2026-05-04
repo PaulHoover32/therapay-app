@@ -79,14 +79,30 @@ function BottomPaneInner({
     messages: initialMessages,
     onFinish: ({ message }) => {
       // Detect showView tool calls and update the view store
+      let hasViewNote = false;
       for (const part of message.parts) {
         if (part.type === "tool-call") {
           const p = part as unknown as { toolName: string; args: Record<string, unknown> };
           if (p.toolName === "showView") {
             if (p.args.main) setMainView(p.args.main as MainViewType);
-            if (p.args.note) addNote(String(p.args.note));
+            if (p.args.note) {
+              addNote(String(p.args.note));
+              hasViewNote = true;
+            }
           }
         }
+      }
+      // Always add a note from the assistant's text if showView didn't provide one
+      if (!hasViewNote) {
+        const text = message.parts
+          .filter((p) => p.type === "text")
+          .map((p) => (p as { type: "text"; text: string }).text)
+          .join("");
+        const firstLine = text.split("\n").find((l) => l.trim().length > 20)?.trim();
+        const note = firstLine
+          ? firstLine.length > 80 ? firstLine.slice(0, 80) + "…" : firstLine
+          : null;
+        if (note) addNote(note);
       }
       router.refresh();
       const sessionId = useChatStore.getState().currentSessionId;

@@ -128,6 +128,15 @@ When a conversation involves goal-setting, comparing performance to peers, or ev
 3. Acknowledge when data is from a specific year or region and may not perfectly match their situation.
 4. Do not fabricate benchmark numbers — only cite what you find.
 
+## UI View Control
+When the user's request calls for showing specific content in the app, call \`showView\` at the start of your response (before your text reply). Include a short \`note\` summarizing what they asked for.
+
+- "log a session", "see my sessions", "session ledger" → showView({ main: "session-ledger", note: "..." })
+- "show my dashboard", "how am I doing", "my earnings" → showView({ main: "dashboard", note: "..." })
+- "set a goal", "view my goal", "recommendations" → showView({ main: "goal-planner", note: "..." })
+
+Only call showView when the main view should change. Do not call it for general questions or analysis.
+
 ## Account Management Flow
 When the therapist asks to change their email or password:
 - **Email change:** confirm the new address, then call \`updateAccount\`. Remind them a confirmation email goes to both their old and new address.
@@ -443,6 +452,21 @@ export async function POST(req: Request) {
           }
           return { success: true, insertedCount: sessions.length };
         },
+      }),
+
+      showView: tool({
+        description:
+          "Change the main content pane to show a specific UI view. Call this when the user wants to see specific functionality like their sessions, dashboard, or goal planner.",
+        inputSchema: z.object({
+          main: z
+            .enum(["dashboard", "session-ledger", "goal-planner", "none"])
+            .describe("Which view to show in the center pane"),
+          note: z
+            .string()
+            .optional()
+            .describe("Short 5-10 word summary of what the user asked for"),
+        }),
+        execute: async ({ main, note }) => ({ success: true, showing: main, note }),
       }),
 
       web_search: anthropic.tools.webSearch_20250305({

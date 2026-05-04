@@ -266,7 +266,10 @@ const AssistantMessage: FC = () => {
           groupBy={(part) => {
             if (part.type === "reasoning")
               return ["group-chainOfThought", "group-reasoning"];
-            if (part.type === "tool-call")
+            if (
+              part.type === "tool-call" &&
+              (part as unknown as { toolName: string }).toolName !== "showView"
+            )
               return ["group-chainOfThought", "group-tool"];
             return null;
           }}
@@ -301,6 +304,7 @@ const AssistantMessage: FC = () => {
               case "reasoning":
                 return <Reasoning {...part} />;
               case "tool-call":
+                if ((part as unknown as { toolName: string }).toolName === "showView") return null;
                 return part.toolUI ?? <ToolFallback {...part} />;
               default:
                 return null;

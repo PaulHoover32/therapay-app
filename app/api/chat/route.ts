@@ -46,7 +46,8 @@ export async function POST(req: Request) {
     system: buildSystemPrompt(ctx),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(AI_CONFIG.chat.maxSteps),
-    experimental_transform: smoothStream({ delayInMs: 15, chunking: /[\s\S]/ }),
+    // Word-level smoothing keeps text fluid without delaying whole sentences for voice
+    experimental_transform: smoothStream({ delayInMs: 10, chunking: "word" }),
     tools: buildTools(toolCtx),
     onFinish: async ({ totalUsage }) => {
       await recordUsage(supabase, user.id, {

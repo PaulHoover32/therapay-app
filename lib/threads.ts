@@ -3,6 +3,7 @@ import { generateText, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { AI_CONFIG } from "@/lib/ai/config";
 import type { Json } from "@/lib/database.types";
+import { decryptMessages, encryptMessages } from "@/lib/transcript-crypto";
 
 export interface ThreadSummary {
   id: string;
@@ -34,7 +35,7 @@ export async function getThreadMessages(
     .is("archived_at", null)
     .maybeSingle();
   if (!data) return null;
-  return (data.messages as unknown as UIMessage[]) ?? [];
+  return decryptMessages(data.messages);
 }
 
 function firstUserText(messages: UIMessage[]): string {
@@ -81,7 +82,7 @@ export async function saveThread(
   const { error } = await supabase.from("chat_sessions").upsert({
     id,
     user_id: userId,
-    messages: messages as unknown as Json,
+    messages: encryptMessages(messages) as unknown as Json,
     title,
     ...(recommendationId ? { recommendation_id: recommendationId } : {}),
   });

@@ -8,16 +8,19 @@ import type { ThreadSummary } from "@/lib/threads";
 import ThreadSidebar from "./ThreadSidebar";
 import SidePanel from "@/components/panel/SidePanel";
 import { WorkspaceContext } from "./WorkspaceContext";
+import { useLiveData } from "@/hooks/use-live-data";
 
 interface Props {
   userId: string;
+  therapistId: string | null;
   name: string;
   avatarUrl: string | null;
   initialThreads: ThreadSummary[];
   children: React.ReactNode;
 }
 
-export default function WorkspaceShell({ userId, name, avatarUrl, initialThreads, children }: Props) {
+export default function WorkspaceShell({ userId, therapistId, name, avatarUrl, initialThreads, children }: Props) {
+  useLiveData(userId, therapistId);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const mobileOpen = usePanelStore((s) => s.mobileOpen);
   const setMobileOpen = usePanelStore((s) => s.setMobileOpen);

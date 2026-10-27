@@ -9,13 +9,14 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   if (!user) redirect("/login");
 
   const [{ data: therapist }, threads] = await Promise.all([
-    supabase.from("therapists").select("name, avatar_url").eq("user_id", user.id).maybeSingle(),
+    supabase.from("therapists").select("id, name, avatar_url").eq("user_id", user.id).maybeSingle(),
     listThreads(supabase, user.id),
   ]);
 
   return (
     <WorkspaceShell
       userId={user.id}
+      therapistId={therapist?.id ?? null}
       name={therapist?.name || user.email || "You"}
       avatarUrl={therapist?.avatar_url ?? null}
       initialThreads={threads}

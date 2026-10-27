@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as "signup" | "recovery" | "email" | null
 
   if (token_hash && type) {
-    const response = NextResponse.redirect(new URL("/dashboard", origin))
+    const response = NextResponse.redirect(new URL("/chat", origin))
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

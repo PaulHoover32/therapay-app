@@ -1,4 +1,3 @@
-import { Goal, Recommendation } from "@/lib/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 export interface PayerTypeSummary {
@@ -228,33 +227,4 @@ export async function getTherapistContext(
     targetRevenuePerDay,
     targetHoursPerDay,
   };
-}
-
-export async function getActiveGoal(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<Goal | null> {
-  const { data } = await supabase
-    .from("goals")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("goal_year", new Date().getFullYear())
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data ?? null;
-}
-
-export async function getRecommendations(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<Recommendation[]> {
-  const { data } = await supabase
-    .from("recommendations")
-    .select("*")
-    .eq("user_id", userId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
-  return data ?? [];
 }

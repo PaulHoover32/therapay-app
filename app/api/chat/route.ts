@@ -1,9 +1,12 @@
-import { streamText, tool, stepCountIs, convertToModelMessages, smoothStream } from "ai";
+import { streamText, tool, stepCountIs, convertToModelMessages, smoothStream, createIdGenerator, type UIMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getTherapistContext, TherapistContext } from "@/lib/data";
 import { buildUserDb } from "@/lib/userDb";
+import { AI_CONFIG } from "@/lib/ai/config";
+import { saveThread } from "@/lib/threads";
+import { PANEL_VIEWS } from "@/lib/panel-views";
 
 export const runtime = "nodejs";
 
@@ -127,6 +130,15 @@ When a conversation involves goal-setting, comparing performance to peers, or ev
 3. Acknowledge when data is from a specific year or region and may not perfectly match their situation.
 4. Do not fabricate benchmark numbers — only cite what you find.
 
+## Screen Control (side panel)
+The app has a side panel next to the conversation. Call \`showView\` to put the most relevant view there whenever it helps the therapist see what you're talking about — before or alongside your text reply.
+- Earnings, "how am I doing", pace, revenue trends → \`summary\`
+- Sessions, logging or reviewing sessions, payer mix → \`sessions\`
+- Goals, targets, recommendations → \`goal\`
+- Practice profile, license, specialties, states → \`profile\`
+- Any other breakdown worth visualizing → \`chart\` with a SELECT \`sql\` (same tables as \`queryData\`; return a label column first, then 1-3 numeric columns, ≤ 24 rows) plus a short \`title\` and \`chartType\`
+Don't call it for small talk or when the current view already fits. Never narrate the tool call itself.
+
 ## Account Management Flow
 When the therapist asks to change their email or password:
 - **Email change:** you can't change it from chat. Tell them email changes are moving to the Settings page, which is coming soon.
@@ -143,16 +155,23 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages, sessionId } = await req.json();
+  const body = await req.json().catch(() => null);
+  const messages = body?.messages as UIMessage[] | undefined;
+  // `id` comes from useChat; `sessionId` from the legacy chat pane
+  const threadId: unknown = body?.id ?? body?.sessionId;
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > 400) {
+    return new Response("Invalid request", { status: 400 });
+  }
+  const sessionId = typeof threadId === "string" && /^[0-9a-f-]{36}$/i.test(threadId) ? threadId : null;
 
   const ctx = await getTherapistContext(supabase, user.id);
   const db = await buildUserDb(supabase, ctx.therapistId ?? "", user.id);
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    model: anthropic(AI_CONFIG.models.chat),
     system: buildSystemPrompt(ctx),
     messages: await convertToModelMessages(messages),
-    stopWhen: stepCountIs(15),
+    stopWhen: stepCountIs(AI_CONFIG.chat.maxSteps),
     experimental_transform: smoothStream({ delayInMs: 15, chunking: /[\s\S]/ }),
     tools: {
       queryData: tool({
@@ -393,11 +412,29 @@ export async function POST(req: Request) {
         },
       }),
 
+      showView: tool({
+        description:
+          "Show a view in the app's side panel. Use it to put relevant data on screen during the conversation.",
+        inputSchema: z.object({
+          view: z.enum(PANEL_VIEWS).describe("Which view to show"),
+          title: z.string().max(80).optional().describe("Short heading, required for chart"),
+          sql: z.string().max(4000).optional().describe("chart only: SELECT returning a label column then 1-3 numeric columns"),
+          chartType: z.enum(["bar", "line", "area"]).optional().describe("chart only"),
+        }),
+        execute: async (input) => ({ shown: input.view }),
+      }),
+
       web_search: anthropic.tools.webSearch_20250305({
         maxUses: 5,
       }),
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    generateMessageId: createIdGenerator({ prefix: "msg", size: 16 }),
+    onFinish: async ({ messages: finalMessages }) => {
+      if (sessionId) await saveThread(supabase, user.id, sessionId, finalMessages);
+    },
+  });
 }

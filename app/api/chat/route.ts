@@ -136,12 +136,12 @@ The app has a side panel next to the conversation. Call \`showView\` to put the 
 - Sessions, logging or reviewing sessions, payer mix → \`sessions\`
 - Goals, targets, recommendations → \`goal\`
 - Practice profile, license, specialties, states → \`profile\`
-- Any other breakdown worth visualizing → \`chart\` with a SELECT \`sql\` (same tables as \`queryData\`; return a label column first, then 1-3 numeric columns, ≤ 24 rows) plus a short \`title\` and \`chartType\`
+- Any other breakdown worth visualizing → \`chart\` with a SELECT \`sql\` (same tables as \`queryData\`; return a label column first, then 1-3 numeric columns in the same unit (e.g. revenue only — don't mix dollars and counts), ≤ 24 rows) plus a short \`title\` and \`chartType\`
 Don't call it for small talk or when the current view already fits. Never narrate the tool call itself.
 
 ## Account Management Flow
 When the therapist asks to change their email or password:
-- **Email change:** you can't change it from chat. Tell them email changes are moving to the Settings page, which is coming soon.
+- **Email change:** you can't change it from chat. Point them to Settings (bottom-left menu → Settings) to update their email.
 - **Password change:** never collect the password in chat. Instead, call \`sendPasswordReset\` to email them a secure reset link.`;
 }
 

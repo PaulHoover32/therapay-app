@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
 import { usePanelStore } from "@/lib/stores/panel";
@@ -18,13 +18,22 @@ import Composer from "./Composer";
 import VoiceControls from "./VoiceControls";
 import VoiceStatus from "./VoiceStatus";
 import { useVoice } from "@/hooks/use-voice";
+import { CLICK_ONLY_TOOLS, isWriteTool, type WriteTool } from "@/lib/ai/write-tools";
+import { ToolStateContext, type ToolCallState } from "./ToolStateContext";
 
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 
-// Tools whose results change data a panel may be showing
-const WRITE_TOOLS = new Set(["saveGoals", "updatePracticeInfo", "bulkInsertSessions"]);
+type ToolPart = {
+  type: string;
+  toolCallId: string;
+  state: string;
+  input?: unknown;
+  output?: unknown;
+  approval?: { id: string };
+};
 
-type ToolPart = { type: string; toolCallId: string; state: string; input?: unknown };
+const YES = /^(yes|yeah|yep|yup|sure|ok(ay)?|confirm(ed)?|correct|do it|save( it)?|go ahead|sounds good|that'?s right)\b/i;
+const NO = /^(no|nope|nah|cancel|stop|don'?t|wait|hold on)\b/i;
 
 function toolParts(messages: UIMessage[]): ToolPart[] {
   return messages.flatMap((m) =>
@@ -52,6 +61,8 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
     id,
     messages: initialMessages,
     transport,
+    // After the user answers a confirmation card, continue the turn so the tool runs
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onFinish: () => {
       if (!inUrl.current) {
         inUrl.current = true;
@@ -62,7 +73,7 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
     },
   });
   const runtime = useAISDKRuntime(chat);
-  const { messages, sendMessage, status, stop } = chat;
+  const { messages, sendMessage, status, stop, addToolApprovalResponse } = chat;
 
   useEffect(() => {
     for (const part of toolParts(messages)) {
@@ -70,7 +81,7 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
       handled.current.add(part.toolCallId);
       const name = part.type.slice("tool-".length);
       if (name === "showView") show(part.input as PanelState);
-      if (WRITE_TOOLS.has(name)) invalidate();
+      if (isWriteTool(name)) invalidate();
     }
   }, [messages, show, invalidate]);
 
@@ -83,9 +94,46 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
   useEffect(() => preload("ner"), []);
   const filterReady = useMlStatus((s) => s.ner === "ready");
 
+  const toolState = useMemo(() => {
+    const calls = new Map<string, ToolCallState>();
+    for (const p of toolParts(messages)) {
+      calls.set(p.toolCallId, {
+        toolName: p.type.slice("tool-".length),
+        state: p.state,
+        input: p.input as Record<string, unknown> | undefined,
+        output: p.output,
+        approvalId: p.approval?.id,
+      });
+    }
+    const respond = (id: string, approved: boolean) => addToolApprovalResponse({ id, approved });
+    return { calls, respond };
+  }, [messages, addToolApprovalResponse]);
+
+  // A spoken (or typed) yes/no answers pending confirmation cards; anything else declines them
+  // and goes through as a normal message. Deletes always need a click.
+  const answerPending = useCallback(
+    (text: string): boolean => {
+      const pending = [...toolState.calls.values()].filter((c) => c.state === "approval-requested" && c.approvalId);
+      if (!pending.length) return false;
+      const yes = YES.test(text.trim());
+      const no = NO.test(text.trim());
+      for (const c of pending) {
+        const clickOnly = CLICK_ONLY_TOOLS.includes(c.toolName as WriteTool);
+        if (yes && clickOnly) {
+          toast("Tap Delete on the card to confirm.");
+          continue;
+        }
+        addToolApprovalResponse({ id: c.approvalId!, approved: yes });
+      }
+      return yes || no;
+    },
+    [toolState, addToolApprovalResponse]
+  );
+
   // Every outgoing message is redacted on this device first; the server only ever sees placeholders
   const send = useCallback(
     async (text: string) => {
+      if (answerPending(text)) return;
       const { text: safe, count } = await redactText(text, allowRef.current);
       if (count) {
         toast(`Removed ${count} name${count > 1 ? "s" : ""} before sending`, {
@@ -94,7 +142,7 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
       }
       sendMessage({ text: safe });
     },
-    [sendMessage]
+    [sendMessage, answerPending]
   );
   const busy = status === "submitted" || status === "streaming";
 
@@ -110,6 +158,7 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      <ToolStateContext.Provider value={toolState}>
       <div className="flex h-full min-h-0 flex-col">
         <WorkspaceHeader />
         <Thread firstName={firstName} isNewUser={isNewUser} onStarter={(t) => filterReady && send(t)} />
@@ -142,6 +191,7 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
           />
         </div>
       </div>
+      </ToolStateContext.Provider>
     </AssistantRuntimeProvider>
   );
 }

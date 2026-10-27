@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Mic } from "@/lib/voice/mic";
 import { EnergyVad } from "@/lib/voice/vad";
 import { Speaker } from "@/lib/voice/speaker";
@@ -255,8 +255,12 @@ export function useVoice({ onUtterance, assistantText, assistantMessageId, isRes
 
   useEffect(() => stopAll, [stopAll]);
 
-  const supported =
-    typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof AudioWorkletNode !== "undefined";
+  // Client-only check (server renders without voice controls, avoiding a hydration mismatch)
+  const supported = useSyncExternalStore(
+    () => () => {},
+    () => !!navigator.mediaDevices?.getUserMedia && typeof AudioWorkletNode !== "undefined",
+    () => false
+  );
 
   return {
     state: mode && asrStatus !== "ready" ? ("loading" as const) : state,

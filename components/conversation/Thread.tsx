@@ -10,9 +10,11 @@ import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import EmptyState from "./EmptyState";
 import ShowViewChip from "./tool-ui/ShowViewChip";
+import WriteToolCard from "./tool-ui/WriteToolCard";
+import { isWriteTool } from "@/lib/ai/write-tools";
 
 // Tools with their own inline UI render outside the collapsed "used tools" group
-const INLINE_TOOLS = new Set(["showView"]);
+const isInline = (name: string) => name === "showView" || isWriteTool(name);
 
 interface Props {
   firstName: string | null;
@@ -62,7 +64,7 @@ const AssistantMessage: FC = () => (
     <MessagePrimitive.GroupedParts
       groupBy={(part) => {
         if (part.type === "reasoning") return ["group-chainOfThought", "group-reasoning"];
-        if (part.type === "tool-call" && !INLINE_TOOLS.has(part.toolName)) return ["group-chainOfThought", "group-tool"];
+        if (part.type === "tool-call" && !isInline(part.toolName)) return ["group-chainOfThought", "group-tool"];
         return null;
       }}
     >
@@ -94,6 +96,7 @@ const AssistantMessage: FC = () => (
             return <Reasoning {...part} />;
           case "tool-call":
             if (part.toolName === "showView") return <ShowViewChip args={part.args} />;
+            if (isWriteTool(part.toolName)) return <WriteToolCard toolCallId={part.toolCallId} toolName={part.toolName} />;
             return part.toolUI ?? <ToolFallback {...part} />;
           default:
             return null;

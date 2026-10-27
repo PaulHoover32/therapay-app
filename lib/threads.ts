@@ -67,7 +67,8 @@ export async function saveThread(
   supabase: SupabaseClient,
   userId: string,
   id: string,
-  messages: UIMessage[]
+  messages: UIMessage[],
+  recommendationId?: string
 ) {
   const { data: existing } = await supabase
     .from("chat_sessions")
@@ -82,6 +83,7 @@ export async function saveThread(
     user_id: userId,
     messages: messages as unknown as Json,
     title,
+    ...(recommendationId ? { recommendation_id: recommendationId } : {}),
   });
   if (error) console.error("Failed to save thread:", error);
 }

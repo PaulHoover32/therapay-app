@@ -7,6 +7,7 @@ import { usePanelStore } from "@/lib/stores/panel";
 import type { ThreadSummary } from "@/lib/threads";
 import ThreadSidebar from "./ThreadSidebar";
 import SidePanel from "@/components/panel/SidePanel";
+import { WorkspaceContext } from "./WorkspaceContext";
 
 interface Props {
   userId: string;
@@ -22,6 +23,7 @@ export default function WorkspaceShell({ userId, name, avatarUrl, initialThreads
   const setMobileOpen = usePanelStore((s) => s.setMobileOpen);
 
   return (
+    <WorkspaceContext.Provider value={{ userId, name }}>
     <SidebarProvider className="h-svh overflow-hidden">
       <ThreadSidebar userId={userId} name={name} avatarUrl={avatarUrl} initialThreads={initialThreads} />
       <SidebarInset className="flex min-w-0 flex-row overflow-hidden">
@@ -41,5 +43,6 @@ export default function WorkspaceShell({ userId, name, avatarUrl, initialThreads
         </Sheet>
       )}
     </SidebarProvider>
+    </WorkspaceContext.Provider>
   );
 }

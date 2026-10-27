@@ -4,26 +4,31 @@ import { useRef, useState } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import PrivacyFilterStatus from "./PrivacyFilterStatus";
 
 interface Props {
   onSend: (text: string) => void;
   onStop: () => void;
   busy: boolean;
+  // False until the on-device privacy filter has loaded; sending is blocked until then
+  ready: boolean;
 }
 
-export default function Composer({ onSend, onStop, busy }: Props) {
+export default function Composer({ onSend, onStop, busy, ready }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || !ready) return;
     onSend(trimmed);
     setText("");
     ref.current?.focus();
   }
 
   return (
+    <>
+    {!ready && <PrivacyFilterStatus />}
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -52,10 +57,11 @@ export default function Composer({ onSend, onStop, busy }: Props) {
           <Square className="size-3 fill-current" />
         </Button>
       ) : (
-        <Button type="submit" size="icon" className="size-9 shrink-0 rounded-full" disabled={!text.trim()} aria-label="Send">
+        <Button type="submit" size="icon" className="size-9 shrink-0 rounded-full" disabled={!text.trim() || !ready} aria-label="Send">
           <ArrowUp className="size-4" />
         </Button>
       )}
     </form>
+    </>
   );
 }

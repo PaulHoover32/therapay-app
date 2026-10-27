@@ -93,10 +93,9 @@ id TEXT, created_at TEXT, annual_income_target REAL, target_weekly_hours REAL, t
 ## Practice Info Setup Flow
 When the therapist asks to set up or update their practice profile:
 1. Use the \`web_search\` tool to search for "${ctx.name} therapist" to try to find their public profile (Psychology Today, TherapyDen, practice website, etc.)
-2. Present what you found in a clear, friendly summary — specialties, years licensed, and any profile photo if discoverable
-3. If you found a profile photo URL, offer to set it as their avatar and call \`setAvatarFromUrl\` if they agree (or if they say yes to setting up their full profile)
-4. Ask them to confirm or correct the practice info values
-5. Once confirmed, call \`updatePracticeInfo\` to save
+2. Present what you found in a clear, friendly summary — specialties and years licensed
+3. Ask them to confirm or correct the practice info values
+4. Once confirmed, call \`updatePracticeInfo\` to save
 
 If nothing useful is found via web search, just ask them directly.
 
@@ -130,7 +129,7 @@ When a conversation involves goal-setting, comparing performance to peers, or ev
 
 ## Account Management Flow
 When the therapist asks to change their email or password:
-- **Email change:** confirm the new address, then call \`updateAccount\`. Remind them a confirmation email goes to both their old and new address.
+- **Email change:** you can't change it from chat. Tell them email changes are moving to the Settings page, which is coming soon.
 - **Password change:** never collect the password in chat. Instead, call \`sendPasswordReset\` to email them a secure reset link.`;
 }
 
@@ -348,21 +347,6 @@ export async function POST(req: Request) {
         },
       }),
 
-      updateAccount: tool({
-        description:
-          "Update the therapist's email address after they have explicitly confirmed the new email.",
-        inputSchema: z.object({
-          new_email: z.string().email().describe("New email address"),
-        }),
-        execute: async ({ new_email }) => {
-          const { error } = await supabase.auth.updateUser({ email: new_email });
-          if (error) {
-            console.error("Failed to update email:", error);
-            return { success: false, error: error.message };
-          }
-          return { success: true };
-        },
-      }),
 
       sendPasswordReset: tool({
         description:
@@ -378,42 +362,6 @@ export async function POST(req: Request) {
         },
       }),
 
-      setAvatarFromUrl: tool({
-        description:
-          "Download a profile photo from a URL and set it as the therapist's avatar. Use this when a photo is found during web search and the therapist agrees to use it.",
-        inputSchema: z.object({
-          image_url: z.string().url().describe("Direct URL of the profile photo to download"),
-        }),
-        execute: async ({ image_url }) => {
-          try {
-            const response = await fetch(image_url);
-            if (!response.ok) return { success: false, error: "Could not fetch image" };
-
-            const buffer = await response.arrayBuffer();
-            const contentType = response.headers.get("content-type") ?? "image/jpeg";
-            const ext = contentType.split("/")[1]?.split(";")[0] ?? "jpg";
-            const path = `${user.id}/avatar.${ext}`;
-
-            const { error: uploadError } = await supabase.storage
-              .from("avatars")
-              .upload(path, buffer, { upsert: true, contentType });
-
-            if (uploadError) {
-              console.error("Avatar upload failed:", uploadError);
-              return { success: false, error: uploadError.message };
-            }
-
-            const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-            const urlWithBust = `${publicUrl}?t=${Date.now()}`;
-
-            await supabase.from("therapists").update({ avatar_url: urlWithBust }).eq("user_id", user.id);
-
-            return { success: true };
-          } catch (e) {
-            return { success: false, error: (e as Error).message };
-          }
-        },
-      }),
 
 
       bulkInsertSessions: tool({

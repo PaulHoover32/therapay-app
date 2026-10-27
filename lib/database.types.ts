@@ -16,24 +16,33 @@ export type Database = {
     Tables: {
       chat_sessions: {
         Row: {
+          archived_at: string | null
           created_at: string
           id: string
           messages: Json
           recommendation_id: string | null
+          title: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           messages?: Json
           recommendation_id?: string | null
+          title?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           messages?: Json
           recommendation_id?: string | null
+          title?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [

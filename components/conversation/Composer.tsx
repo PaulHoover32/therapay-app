@@ -12,9 +12,10 @@ interface Props {
   busy: boolean;
   // False until the on-device privacy filter has loaded; sending is blocked until then
   ready: boolean;
+  voiceControls?: React.ReactNode;
 }
 
-export default function Composer({ onSend, onStop, busy, ready }: Props) {
+export default function Composer({ onSend, onStop, busy, ready, voiceControls }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -36,6 +37,7 @@ export default function Composer({ onSend, onStop, busy, ready }: Props) {
       }}
       className="flex items-end gap-2 rounded-3xl border bg-background p-2 transition-shadow focus-within:border-ring/75 focus-within:ring-2 focus-within:ring-ring/20"
     >
+      {voiceControls}
       <Textarea
         ref={ref}
         value={text}

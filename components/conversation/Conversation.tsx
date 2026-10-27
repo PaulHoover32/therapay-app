@@ -15,6 +15,9 @@ import { usePrivacyAllowlist } from "@/hooks/use-privacy-allowlist";
 import { preload, redactText, useMlStatus } from "@/lib/voice/ml-client";
 import Thread from "./Thread";
 import Composer from "./Composer";
+import VoiceControls from "./VoiceControls";
+import VoiceStatus from "./VoiceStatus";
+import { useVoice } from "@/hooks/use-voice";
 
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 
@@ -95,13 +98,48 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
   );
   const busy = status === "submitted" || status === "streaming";
 
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const assistantText = (lastAssistant?.parts ?? []).map((p) => (p.type === "text" ? p.text : "")).join("\n");
+  const voice = useVoice({
+    onUtterance: send,
+    assistantText,
+    assistantMessageId: lastAssistant?.id ?? null,
+    isResponding: busy,
+    stopResponse: stop,
+  });
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <div className="flex h-full min-h-0 flex-col">
         <WorkspaceHeader />
         <Thread firstName={firstName} isNewUser={isNewUser} onStarter={(t) => filterReady && send(t)} />
         <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-          <Composer onSend={send} onStop={stop} busy={busy} ready={filterReady} />
+          <VoiceStatus
+            state={voice.state}
+            mode={voice.mode}
+            partial={voice.partial}
+            asrProgress={voice.asrProgress}
+            onInterrupt={voice.interrupt}
+          />
+          <Composer
+            onSend={send}
+            onStop={stop}
+            busy={busy}
+            ready={filterReady}
+            voiceControls={
+              voice.supported ? (
+                <VoiceControls
+                  state={voice.state}
+                  mode={voice.mode}
+                  disabled={!filterReady}
+                  onPttStart={voice.startPtt}
+                  onPttEnd={voice.endPtt}
+                  onToggleHandsfree={voice.toggleHandsfree}
+                  onHover={voice.prepare}
+                />
+              ) : null
+            }
+          />
         </div>
       </div>
     </AssistantRuntimeProvider>

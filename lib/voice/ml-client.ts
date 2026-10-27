@@ -93,3 +93,8 @@ export async function transcribeAudio(audio: Float32Array, partial: boolean): Pr
   );
   return res.text;
 }
+
+// Dev-only handle for exercising the worker from the browser console
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  (window as unknown as { __therapayMl: unknown }).__therapayMl = { preload, redactText, transcribeAudio, useMlStatus };
+}

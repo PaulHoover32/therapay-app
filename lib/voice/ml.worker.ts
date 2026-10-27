@@ -40,7 +40,8 @@ function loadNer() {
 function loadAsr() {
   asrPromise ??= pipeline("automatic-speech-recognition", STT_CONFIG.model, {
     dtype: STT_CONFIG.dtype,
-    device: hasWebGPU ? "webgpu" : "wasm",
+    // Heavy encoder on the GPU when available; the int8 decoder runs best on WASM
+    device: hasWebGPU ? { encoder_model: "webgpu", decoder_model_merged: "wasm" } : "wasm",
     progress_callback: progress("asr"),
   }).then((p) => {
     post({ type: "ready", task: "asr" });

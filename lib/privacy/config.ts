@@ -29,5 +29,6 @@ export const US_STATES = [
 // Speech-to-text model (transcription happens on device)
 export const STT_CONFIG = {
   model: "onnx-community/whisper-base.en",
-  dtype: { encoder_model: "fp32", decoder_model_merged: "q4" },
+  // q8 decoder transcribed full sentences in testing; fp32 and q4 both cut off early
+  dtype: { encoder_model: "fp32", decoder_model_merged: "q8" },
 } as const;

@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
     if (!error) {
-      return NextResponse.redirect(new URL("/dashboard", origin))
+      // Return the response the session cookies were set on
+      return response
     }
   }
 

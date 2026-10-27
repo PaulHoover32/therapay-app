@@ -5,15 +5,16 @@ import EmailField from "@/components/settings/EmailField";
 import PasswordReset from "@/components/settings/PasswordReset";
 import ThemePicker from "@/components/settings/ThemePicker";
 import SettingsSection from "@/components/settings/SettingsSection";
+import UsageSummary from "@/components/settings/UsageSummary";
+import { getDailyUsage } from "@/lib/usage";
 
 export default async function SettingsPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: therapist } = await supabase
-    .from("therapists")
-    .select("name, avatar_url")
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  const [{ data: therapist }, usage] = await Promise.all([
+    supabase.from("therapists").select("name, avatar_url").eq("user_id", user!.id).maybeSingle(),
+    getDailyUsage(supabase, user!.id),
+  ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -31,6 +32,9 @@ export default async function SettingsPage() {
           </SettingsSection>
           <SettingsSection title="Appearance">
             <ThemePicker />
+          </SettingsSection>
+          <SettingsSection title="Today's usage">
+            <UsageSummary usage={usage} />
           </SettingsSection>
         </div>
       </div>

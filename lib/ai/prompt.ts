@@ -7,12 +7,6 @@ export function buildSystemPrompt(ctx: TherapistContext): string {
     ? `Active goal (${ctx.existingGoal.goal_year}): $${ctx.existingGoal.annual_income_target.toLocaleString()} annual target, ${ctx.existingGoal.target_weekly_hours.toFixed(1)} hrs/week at $${ctx.existingGoal.target_avg_payout.toFixed(0)}/session.`
     : "No active goal set for this year.";
 
-  const projectedBlock = ctx.projectedAnnual
-    ? `$${ctx.projectedAnnual.toLocaleString()} (current pace)`
-    : ctx.effectiveYear < now.getFullYear()
-      ? `N/A — no ${now.getFullYear()} sessions yet`
-      : "N/A — no session data";
-
   const priorYearBlock = ctx.priorYearRevenue
     ? `$${ctx.priorYearRevenue.toLocaleString()} (${ctx.effectiveYear - 1})`
     : "N/A";
@@ -45,7 +39,7 @@ export function buildSystemPrompt(ctx: TherapistContext): string {
 
 ## Therapist: ${ctx.name}
 - ${ctx.hasNoData ? "No sessions logged yet" : `${ctx.effectiveYear} YTD revenue: $${ctx.ytdRevenue.toLocaleString()}`}
-- Projected annual: ${projectedBlock}
+- Projected annual: use \`projected_annual\` from \`getEarningsSummary\` (the same figure the panel shows); don't compute your own
 - Prior year revenue: ${priorYearBlock}
 - Weeks remaining in ${now.getFullYear()}: ${ctx.weeksRemainingInYear}
 - ${goalBlock}

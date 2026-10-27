@@ -27,6 +27,13 @@ export const NAMED_QUERIES = {
            WHERE CAST(strftime('%Y', session_datetime) AS INTEGER) = (SELECT yr FROM y))     AS ytd_sessions,
         (SELECT sum(amount) FROM sessions
            WHERE CAST(strftime('%Y', session_datetime) AS INTEGER) = (SELECT yr FROM y) - 1) AS prior_year_revenue,
+        -- Pace projection uses the real calendar: earnings so far this year ÷ days elapsed × 365.
+        -- Null when the latest data is from a prior year.
+        CASE WHEN (SELECT yr FROM y) = CAST(strftime('%Y', 'now') AS INTEGER) THEN
+          round((SELECT coalesce(sum(amount), 0) FROM sessions
+                   WHERE CAST(strftime('%Y', session_datetime) AS INTEGER) = (SELECT yr FROM y))
+                / (julianday(date('now')) - julianday(date('now', 'start of year')) + 1) * 365)
+        END                                                                 AS projected_annual,
         (SELECT coalesce(sum(amount), 0) FROM sessions, a
            WHERE date(session_datetime) > date(anchor, '-28 days'))         AS last28_revenue,
         (SELECT count(*) FROM sessions, a

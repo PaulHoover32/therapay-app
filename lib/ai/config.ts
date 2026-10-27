@@ -11,6 +11,11 @@ export const AI_CONFIG = {
   chat: {
     maxSteps: 15,
   },
+  // Per-user daily caps (UTC day). Requests over a cap get a friendly 429.
+  limits: {
+    chatTurnsPerDay: 200,
+    ttsCharactersPerDay: 60_000,
+  },
   // Server-side text-to-speech (optional). Without CARTESIA_API_KEY the browser's own voices are used.
   tts: {
     provider: "cartesia",

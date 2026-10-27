@@ -1,7 +1,7 @@
 "use client";
 
 import { useAnalytics } from "@/hooks/use-analytics";
-import { formatCurrency, formatCurrencyCompact, formatDay, formatNumber, formatPercentChange, parseDay } from "@/lib/format";
+import { formatCurrency, formatCurrencyCompact, formatDay, formatNumber, formatPercentChange } from "@/lib/format";
 import StatCard from "../StatCard";
 import PanelSection from "../PanelSection";
 import PanelState from "../PanelState";
@@ -18,9 +18,7 @@ export default function SummaryView() {
   if (!s || !n(s.total_sessions)) return <PanelState empty="No sessions logged yet. Ask the assistant to log your first one." />;
 
   const ytd = n(s.ytd_revenue);
-  const anchor = parseDay(String(s.anchor_date));
-  const dayOfYear = Math.max(1, Math.round((anchor.getTime() - new Date(anchor.getFullYear(), 0, 1).getTime()) / 86400000) + 1);
-  const projected = (ytd / dayOfYear) * 365;
+  const projected = typeof s.projected_annual === "number" ? s.projected_annual : null;
   const last28 = n(s.last28_revenue);
   const prev28 = n(s.prev28_revenue);
   const change = formatPercentChange(last28, prev28);
@@ -34,8 +32,8 @@ export default function SummaryView() {
         <StatCard
           label="Projected year"
           value={formatCurrency(projected)}
-          detail={goal ? `${Math.round((projected / goal) * 100)}% of ${formatCurrency(goal)} goal` : "No goal set"}
-          tone={goal ? (projected >= goal ? "up" : "down") : "default"}
+          detail={goal && projected != null ? `${Math.round((projected / goal) * 100)}% of ${formatCurrency(goal)} goal` : goal ? "No sessions this year yet" : "No goal set"}
+          tone={goal && projected != null ? (projected >= goal ? "up" : "down") : "default"}
         />
         <StatCard
           label="Last 28 days"

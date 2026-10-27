@@ -8,6 +8,7 @@ import { buildTools } from "@/lib/ai/tools";
 import { createToolContext } from "@/lib/ai/tools/context";
 import { saveThread } from "@/lib/threads";
 import { deniedToolLogs, writeToolLogs } from "@/lib/ai/tool-logs";
+import { checkCap, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,12 @@ export async function POST(req: Request) {
   }
   const sessionId = typeof threadId === "string" && /^[0-9a-f-]{36}$/i.test(threadId) ? threadId : null;
 
+  // A turn that only answers a confirmation card doesn't count against the daily cap
+  if (messages[messages.length - 1]?.role === "user") {
+    const capMessage = await checkCap(supabase, user.id, "chat");
+    if (capMessage) return new Response(capMessage, { status: 429 });
+  }
+
   const ctx = await getTherapistContext(supabase, user.id);
   const toolCtx = createToolContext({
     supabase,
@@ -41,6 +48,14 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(AI_CONFIG.chat.maxSteps),
     experimental_transform: smoothStream({ delayInMs: 15, chunking: /[\s\S]/ }),
     tools: buildTools(toolCtx),
+    onFinish: async ({ totalUsage }) => {
+      await recordUsage(supabase, user.id, {
+        kind: "chat",
+        model: AI_CONFIG.models.chat,
+        inputTokens: totalUsage.inputTokens ?? 0,
+        outputTokens: totalUsage.outputTokens ?? 0,
+      });
+    },
   });
 
   return result.toUIMessageStreamResponse({

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { AI_CONFIG } from "@/lib/ai/config";
+import { checkCap, recordUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,10 @@ export async function POST(req: NextRequest) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 
+  const characters = parsed.data.text.length;
+  const capMessage = await checkCap(supabase, user.id, "tts", characters);
+  if (capMessage) return NextResponse.json({ error: capMessage }, { status: 429 });
+
   const res = await fetch("https://api.cartesia.ai/tts/bytes", {
     method: "POST",
     headers: {
@@ -43,5 +48,6 @@ export async function POST(req: NextRequest) {
     console.error("Cartesia TTS failed:", res.status, await res.text().catch(() => ""));
     return NextResponse.json({ error: "TTS failed" }, { status: 502 });
   }
+  await recordUsage(supabase, user.id, { kind: "tts", model: AI_CONFIG.tts.model, characters });
   return new Response(res.body, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
 }

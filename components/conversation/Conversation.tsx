@@ -63,6 +63,8 @@ export default function Conversation({ id, initialMessages, isNew, firstName, is
     transport,
     // After the user answers a confirmation card, continue the turn so the tool runs
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    // Surfaces server messages such as the daily limit (429) instead of a generic error
+    onError: (err) => toast.error(err.message || "Something went wrong."),
     onFinish: () => {
       if (!inUrl.current) {
         inUrl.current = true;

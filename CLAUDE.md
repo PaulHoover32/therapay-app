@@ -1,242 +1,97 @@
 # Therapay — Claude Instructions
 
-## SCOPE: Full repo
-
-### Own:
-- `app/` — all routes (app, marketing, login, api)
-- `components/` — all components including marketing
-- `lib/`, `proxy.ts`
-
----
-
 ## App Overview
-Therapay helps 1099 therapists track and project their earnings.
+Therapay is a voice-first, chat-native income planner for 1099 therapists (Headway, Alma, Grow…).
+The whole signed-in app is one conversation: the user talks or types, the assistant answers (out loud
+for spoken turns), reads/writes their Supabase data through tools, and drives a side panel of views.
 
-## Navigation
-- **Sidebar:** shadcn `Sidebar` component, icon-rail style, `collapsible="icon"` (collapsed by default, expands on hover/toggle)
-- **`/dashboard` is complete — do not modify it**
-- Nav items: Dashboard (`/dashboard`), Intelligence (`/intelligence`), Planner (`/planner`); Profile (`/profile`) pinned to sidebar bottom
-- Active route highlighted via `usePathname()`
+## Ground rules
+- **Privacy:** client names must never leave the browser. Every outgoing message (typed, spoken, starter)
+  goes through on-device redaction (`lib/privacy/*`, run in `lib/voice/ml.worker.ts`) → `[NAME]` placeholders.
+  Never add a code path that sends user text or audio to a server before `redactText()`.
+- **Writes need approval:** any tool that changes data sets `needsApproval: true` and is listed in
+  `lib/ai/write-tools.ts`. The user confirms on a card (or says yes/no); deletes are click-only.
+- **Panel and assistant must agree:** analytics numbers come from the named SQL in
+  `lib/analytics/queries.ts`, used by both panel views and tools. Don't compute metrics in components or prompts.
 
-## Data Layer
-- **Shared data access:** always go through `lib/data.ts` — never fetch directly from pages
-- `lib/seed-data.ts` holds mock data; `lib/data.ts` exports `getTherapistProfile()`, `getSessionLogs()`, `getSessionById(id)`, `getActiveGoal()`, `getRecommendations()`, `getTherapistContext()`
-- Dashboard fetches sessions/payers/sessionCodes directly from Supabase, but uses `getActiveGoal()` from `lib/data.ts` for goal data; other pages use `lib/data.ts` throughout
+## Routes
+- `/chat`, `/chat/[id]` — the workspace (history sidebar · conversation · side panel). `app/(workspace)/`
+- `/settings` — photo, email, password reset, theme, today's usage
+- `/`, `/about`, `/pricing`, `/login`, `/auth/confirm` — public
+- `/dashboard`, `/planner` → `/chat`; `/profile` → `/settings` (redirects in `next.config.ts`)
+- API: `/api/chat` (agent), `/api/analytics` (named queries; POST = guarded ad-hoc SELECT for charts),
+  `/api/tts` (optional Cartesia; browser voices otherwise)
 
-## State Management
-- **Zustand** stores are domain-scoped — one slice per route (e.g., `store/intelligence.ts`, `store/planner.ts`)
-- Pages are modular and independently navigable by design — avoid cross-page state
+## Layout of the code
+```
+app/api/chat/route.ts        thin handler: auth → caps → context → streamText → save thread + tool logs
+lib/ai/config.ts             models, step limit, TTS, daily caps — the one place to switch models
+lib/ai/prompt.ts             system prompt
+lib/ai/tools/*               one file per tool; index.ts registers them and logs every call
+lib/ai/write-tools.ts        which tools change data (shared client/server)
+lib/analytics/queries.ts     named SQL over the in-memory analytics DB (lib/userDb.ts, sql.js)
+lib/threads.ts               list/load/save conversations (server-side; titles via cheap model)
+lib/transcript-crypto.ts     AES-256-GCM for stored conversations (TRANSCRIPT_ENCRYPTION_KEY)
+lib/sessions.ts              server-side session insert/update/delete
+lib/usage.ts                 usage_events + daily caps
+lib/privacy/*                NER redaction config + pure redaction helpers
+lib/voice/*                  ML worker (NER + Whisper), mic capture, VAD, speaker queue
+hooks/use-voice.ts           push-to-talk, hands-free, barge-in, speaking replies
+hooks/use-analytics.ts       panel data fetching (refetches on panel invalidate)
+hooks/use-live-data.ts       Supabase Realtime → panel refresh
+components/workspace/*       shell, history sidebar, header
+components/conversation/*    thread, composer, voice controls/status, confirmation cards
+components/panel/*           side panel + views (summary, sessions, goal, profile, chart)
+components/settings/*        settings sections
+components/assistant-ui/*    vendored assistant-ui pieces (markdown, reasoning, tool group/fallback)
+```
 
-## Global Chat System
-- **Do not add** the chat button or panel to individual pages — they live in `app/layout.tsx` only
-- `components/chat/ChatButton.tsx` — floating button (bottom-right, z-50), toggles panel
-- `components/chat/ChatPanel.tsx` — 400×560px fixed panel, uses Vercel AI SDK `useChat`
-- `components/chat/starters.ts` — conversation starter strings
-- `store/chatStore.ts` — Zustand store: `isOpen`, `currentSessionId`, `hasRecommendation` + open/close/toggle/createSession/setHasRecommendation/clearSession
-- **API route:** `app/api/chat/route.ts` — `streamText` with `claude-sonnet-4-6`, one tool: `saveGoals`
-- `saveGoals` tool writes three tables in order: `recommendations` (insert) → `goals` (deactivate old + insert new) → `chat_sessions` (update recommendation_id)
-- `sessionId` is passed from the client in the request body alongside `messages`; the API route uses it to link the session to the recommendation
-- Therapist context (YTD revenue, velocity, weeks remaining, active goal) is fetched via `getTherapistContext()` in `lib/data.ts`
+## Adding a tool
+1. Create `lib/ai/tools/<name>.ts` exporting `(ctx: ToolContext) => tool({...})` with a zod `inputSchema`.
+2. Register it in `lib/ai/tools/index.ts` (logging is automatic).
+3. If it writes data: `needsApproval: true`, add it to `WRITE_TOOLS`, and add a case to
+   `components/conversation/tool-ui/describeWrite.ts` so the card shows exactly what will be saved.
+4. If it reads analytics: add a named query to `lib/analytics/queries.ts` and use `runNamedQuery`.
+5. Mention when to use it in `lib/ai/prompt.ts`.
 
-### Supabase Tables
-- **goals:** `id, user_id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, is_active, last_modified_at, last_modified_by ('user'|'ai'), created_at` — one active row per user per year
-- **recommendations:** append-only, never updated after insert — `id, user_id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, summary, reasoning, ytd_revenue_at_time, avg_weekly_hours_at_time, avg_payout_at_time, weeks_remaining_at_input, created_at`
-- **chat_sessions:** `id, user_id, created_at, recommendation_id (nullable → recommendations.id), messages (jsonb [])` — sessions without a saveGoals outcome are deleted on chat close (client-side fire-and-forget via chatStore `close()`)
+## Adding a panel view
+Add the id to `PANEL_VIEWS` in `lib/panel-views.ts`, a component in `components/panel/views/`, a case in
+`SidePanel.tsx`, and a line in the prompt's "Screen Control" section.
 
-### Session Lifecycle
-1. Chat open → nothing written to DB yet
-2. First user message → `chatStore.createSession()` inserts a `chat_sessions` row; id stored in `currentSessionId`
-3. `sessionId` sent in every request body so server can update `recommendation_id` after saveGoals
-4. Chat close without recommendation → `chatStore.close()` deletes the session row (background, no await)
-5. saveGoals fires → server updates `chat_sessions.recommendation_id`; client should call `setHasRecommendation()` to prevent delete on close
+## Data
+- Supabase Postgres, RLS on every table (all policies trace to `auth.uid()`). Migrations live in
+  `supabase/migrations/` — apply new ones with the Supabase MCP (`apply_migration`) and keep the file in sync.
+- Tables: `therapists`, `sessions`, `goals`, `recommendations`, `chat_sessions` (title, updated_at,
+  archived_at; `messages` is an encrypted envelope), `tool_call_logs`, `usage_events`, `subscriptions`,
+  `reference_*`.
+- `save_goal_recommendation()` saves a recommendation + swaps the active goal atomically.
+- Regenerate `lib/database.types.ts` after schema changes (Supabase MCP `generate_typescript_types`).
+- `20261027070000_transcript_retention.sql` is intentionally **not applied** yet (needs owner review).
 
-## /planner Page
-- `app/(app)/planner/page.tsx` — server component, fetches `getActiveGoal` + `getRecommendations` and passes to client components
-- `components/planner/GoalCard.tsx` — displays active goal with inline edit (3 fields); saves with `last_modified_by: 'user'`; shows toast on success
-- `components/planner/RecommendationList.tsx` — renders list of RecommendationCard; empty state if none
-- `components/planner/RecommendationCard.tsx` — date, context line, summary, 3 stats, collapsible reasoning, Apply button
-- `components/planner/ApplyRecommendationDialog.tsx` — two-column comparison dialog; on confirm upserts goals table with `last_modified_by: 'ai'`
+## Conventions
+- Next.js 16 App Router, TypeScript strict, Tailwind v4, shadcn/ui (`new-york`), Lucide.
+- `proxy.ts` (not middleware.ts) guards routes; public paths match exactly or by `/prefix/`.
+- Server Components by default; `"use client"` only for interactivity.
+- Tailwind only; inline `style` only for data-driven values (bar widths).
+- Charts: shadcn `ChartContainer` + `ChartConfig` (see `components/panel/AnalyticsChart.tsx`).
+  Pass Recharts axes as an array, not a fragment.
+- `components/ui/*` is shadcn-managed — add with `npx shadcn@latest add <name>`, don't hand-edit.
+  (New shadcn versions import `cn` from a `cn` package; change it to `@/lib/utils`.)
 
-## Tech Stack
-- **Framework:** Next.js 16 (App Router)
-- **Language:** TypeScript (strict)
-- **Styling:** Tailwind CSS v4
-- **UI Components:** shadcn/ui (`new-york` style, Radix UI primitives) + Lucide React
-- **Charts:** shadcn `chart` component (`ChartContainer`, `ChartTooltip`, etc.) wrapping Recharts
-- **AI:** Anthropic TypeScript SDK + Vercel AI SDK
-- **Package Manager:** npm
-- **Theme:** Dark mode by default (`dark` class on `<html>`)
+## Environment
+`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`, `ANTHROPIC_API_KEY`,
+`TRANSCRIPT_ENCRYPTION_KEY` (32 bytes base64; must also be set in Vercel), optional `CARTESIA_API_KEY`,
+`CARTESIA_VOICE_ID`. If your shell exports `ANTHROPIC_BASE_URL` without `/v1`, unset it before `npm run dev`.
 
-## App Router Conventions
-- All components are **Server Components by default**
-- Add `"use client"` only when the component needs browser APIs, event handlers, or React state/effects
-- Data fetching happens in Server Components — pass data down as props
-- API routes live in `app/api/[route]/route.ts`
-- Layouts in `app/layout.tsx`, pages in `app/[route]/page.tsx`
-
-## Styling Rules
-- **Tailwind only** — no separate `.css` files, no CSS modules, no inline `style={{}}` objects
-- Use `cn()` from `lib/utils.ts` for conditional class merging
-- Follow the shadcn/ui theming system (CSS variables in `globals.css`)
-
-## Component Rules
-- **Always reach for shadcn/ui first** before building a custom component
-- Add shadcn components with: `npx shadcn@latest add <component>`
-- Custom components go in `components/` — one component per file, named in PascalCase
-- UI primitives go in `components/ui/` (managed by shadcn — do not edit these manually)
-- This project uses the `new-york` style with standard Radix UI primitives — use `asChild` prop where needed
-
-## Chart Rules
-- **Always use the shadcn `chart` component** — never use raw Recharts components directly
-- Add with: `npx shadcn@latest add chart`
-- Always define a `ChartConfig` object and pass it to `ChartContainer`
-- Use `var(--color-<key>)` for colors inside the chart (injected by `ChartContainer`)
-- Use `ChartTooltip` + `ChartTooltipContent` for tooltips — never raw Recharts `<Tooltip>`
-- Use `ChartLegend` + `ChartLegendContent` for legends
-- Never pass `hsl(var(--chart-N))` directly to Recharts props — the CSS vars use oklch and can't be wrapped in `hsl()`
-- Gradient fills use `<defs><linearGradient>` with `stopColor="var(--color-<key>)"`
-- Example pattern:
-  ```tsx
-  const chartConfig: ChartConfig = {
-    revenue: { label: "Revenue", color: "var(--chart-1)" },
-  }
-  // Inside JSX:
-  <ChartContainer config={chartConfig}>
-    <AreaChart data={data}>
-      <Area dataKey="revenue" stroke="var(--color-revenue)" fill="url(#fillRevenue)" />
-    </AreaChart>
-  </ChartContainer>
-  ```
-
-## Environment Variables
-- All secrets go in `.env.local` (gitignored)
-- Prefix client-side vars with `NEXT_PUBLIC_`
-- Server-only vars (like `ANTHROPIC_API_KEY`) have no prefix
-- Never import env vars in client components
-
-## Auth
-- **Library:** Supabase Auth via `@supabase/ssr` — Auth.js has been removed
-- **Route protection:** `proxy.ts` calls `supabase.auth.getUser()` to check session; public paths: `/login`
-- **Login flow:** `supabase.auth.signInWithPassword({ email, password })` in the client — sets session cookie automatically via `@supabase/ssr`
-- **Session reading:** `createSupabaseServerClient()` from `lib/supabase-server.ts` + `supabase.auth.getUser()` in Server Components
-- **Test accounts:** sarah@therapay.dev, marcus@therapay.dev, jordan@therapay.dev (all use `password123`) — exist in both `auth.users` and the `therapists` data table in Supabase
-- **Manual auth user inserts via SQL** require empty strings (not NULL) for: `confirmation_token`, `recovery_token`, `email_change_token_new`, `email_change_token_current`, `email_change` — and a matching row in `auth.identities`
-- **Env vars:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` in `.env.local`
-
-## Proxy (Middleware)
-- File is `proxy.ts` at project root (Next.js 16 convention — do not name it `middleware.ts`)
-- Export must be named `proxy` (not `middleware`)
-- Uses `supabase.auth.getUser()` to check authentication
-- Public paths: `/login`
-
-## Testing After Changes
-
-After any change, verify with this sequence before calling it done:
-
+## Testing after changes
 ```bash
-# 1. Build check
+npx tsc --noEmit --incremental false
+npm run lint
 npm run build
+npm run check:redaction   # after touching lib/privacy (downloads the NER model on first run)
 ```
-
-```
-# 2. Puppeteer UI test — only for UI changes
-- Only run Puppeteer when the change affects the UI (new components, modals, visual changes, etc.)
-- Do NOT run a generic dashboard smoke test — test only the specific functionality that changed
-- Navigate to the relevant page, interact with the changed component, and screenshot to confirm it works
-- Log in as sarah@therapay.dev / password123 unless another account is more relevant
-```
-
-```bash
-# 3. Auth e2e test (Supabase) — for auth/data changes
-curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"sarah@therapay.dev","password":"password123"}' \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
-
-# 4. Check dev server logs (server component console.log goes here, NOT to /tmp)
-tail -20 .next/dev/logs/next-development.log
-```
-
-> **Note:** Server component `console.log` output goes to `.next/dev/logs/next-development.log`, not to any file captured by `npm run dev > /tmp/...`. The `/tmp` redirect only captures the initial startup banner.
-
-### Puppeteer tips
-- Use `mcp__puppeteer__puppeteer_navigate`, `mcp__puppeteer__puppeteer_click`, `mcp__puppeteer__puppeteer_screenshot`
-- Click buttons by stable class selectors (e.g. `button.text-blue-500`), not by text content via JS evaluate — `evaluate` with `.click()` returns the DOM element and crashes the tab
-- Always take a screenshot after opening a modal/dialog to confirm layout is correct before declaring done
-- Supabase SSR session cookies are too complex to replicate via curl — Puppeteer is the only reliable UI test method
-
-## DB Testing Protocol
-After any migration that touches schema or RLS, run these checks before calling it done:
-
-**1. Verify migration applied**
-Use `mcp__supabase__execute_sql` to confirm new columns/policies exist.
-
-**2. Audit RLS policies**
-```sql
-SELECT policyname, cmd, qual, with_check
-FROM pg_policies
-WHERE tablename = '<table>' AND schemaname = 'public'
-ORDER BY cmd;
-```
-Every policy that gates on user identity must trace back to `auth.uid()` via a stable FK — never via email or other mutable fields.
-
-**3. Smoke test CRUD via SQL** (bypasses RLS — confirms schema only)
-Run INSERT → UPDATE → DELETE with a known `therapist_id`. Verify `created_at` and `updated_at` are populated by the DB.
-
-**4. Auth smoke test**
-```bash
-curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_type=password" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"sarah@therapay.dev","password":"password123"}' \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print('OK' if 'access_token' in d else d)"
-```
-
-**5. UI smoke test** (validates RLS with real JWT)
-- Add a session → reload → verify it persists
-- Edit the session → reload → verify change persists and `updated_at` updated
-- Delete the session → verify it's gone
-
-## Chat Testing Protocol
-
-After any change to `app/api/chat/route.ts`, `lib/data.ts` (context), or the `goals` table:
-
-**1. UI smoke test via Puppeteer** (curl cannot replicate Supabase SSR session cookies — use browser-based testing)
-- Log in as sarah@therapay.dev via `mcp__puppeteer__*` tools
-- Open chat panel and verify conversation starters appear
-
-**2. Key behaviors to verify via Puppeteer UI test**
-- Open chat panel → conversation starters appear
-- Click a starter → message appears in thread, loading dots show, Claude responds
-- Type a custom message → send → Claude responds
-- Trigger goal-setting flow: click "Model scenarios and set goals" → answer Claude's questions → confirm → verify a row appears in the `goals` table
-- Verify `saveGoals` tool call persists: run `SELECT * FROM goals WHERE user_id = '<sarah_user_id>'` after confirming a goal
-
-**3. Verify `convertToModelMessages` is applied in route**
-The v6 `useChat` client sends `UIMessage[]` (parts-based). The `streamText` function expects `ModelMessage[]`.
-`app/api/chat/route.ts` must call `await convertToModelMessages(messages)` before passing to `streamText` — without it, Claude never responds and the server logs `AI_InvalidPromptError`.
-
-**4. Goals table smoke test after saveGoals**
-```sql
-SELECT id, goal_year, annual_income_target, target_weekly_hours, target_avg_payout, is_active
-FROM goals
-WHERE user_id = (SELECT id FROM auth.users WHERE email = 'sarah@therapay.dev')
-ORDER BY created_at DESC
-LIMIT 3;
-```
-Confirm: only one row has `is_active = true` per `goal_year`. Prior goals should have `is_active = false`.
-
-## Common Commands
-```bash
-npm run dev       # Start dev server (localhost:3000)
-npm run build     # Production build
-npm run lint      # Run ESLint
-npx shadcn@latest add <component>  # Add a shadcn component
-```
-
-## AI Integration
-- Use the Vercel AI SDK (`ai` package) for streaming responses in API routes
-- Use the Anthropic SDK (`@anthropic-ai/sdk` package) for direct API calls
-- AI routes go in `app/api/ai/[route]/route.ts`
-- Always stream responses for chat/generation features
+- UI changes: run the dev server and test in the browser as sarah@therapay.dev / password123
+  (also marcus@ and jordan@therapay.dev). Test only what changed.
+- Privacy: type a message with a fake client name and confirm the stored thread contains `[NAME]`.
+- Writes: trigger the tool, check the card, Cancel → no row; Confirm → one row; a `tool_call_logs` row each time.
+- Voice needs a real mic; verify transcription with `__therapayMl.transcribeAudio` in dev if needed.

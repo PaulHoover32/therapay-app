@@ -1,11 +1,14 @@
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/", "/pricing", "/about", "/blog"]
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/pricing", "/about", "/blog"]
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+  // "/" must match exactly — as a prefix it would make every path public
+  const isPublic =
+    pathname === "/" ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
   let supabaseResponse = NextResponse.next({ request })
 
@@ -39,7 +42,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.redirect(new URL("/chat", request.url))
   }
 
   return supabaseResponse

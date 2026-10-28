@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as "signup" | "recovery" | "email" | null
 
   if (token_hash && type) {
-    const response = NextResponse.redirect(new URL("/dashboard", origin))
+    const response = NextResponse.redirect(new URL("/chat", origin))
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
     if (!error) {
-      return NextResponse.redirect(new URL("/dashboard", origin))
+      // Return the response the session cookies were set on
+      return response
     }
   }
 

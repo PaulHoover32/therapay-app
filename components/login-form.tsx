@@ -47,7 +47,7 @@ export function LoginForm({
       if (authError) {
         setError("Invalid email or password.");
       } else {
-        router.push("/dashboard");
+        router.push("/chat");
         router.refresh();
       }
     } catch {

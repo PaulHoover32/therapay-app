@@ -12,6 +12,20 @@
 ## App Overview
 Therapay helps 1099 therapists track and project their earnings.
 
+## MCP Server (Claude / ChatGPT connectors)
+Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/mcp` (Streamable HTTP, `mcp-handler` v2).
+- `app/api/mcp/route.ts` — handler wrapped in `withMcpAuth`; every request needs a Supabase access token
+- `lib/mcp/auth.ts` — verifies the token (`auth.getClaims`) and builds a Supabase client *as that user* (RLS applies; no service-role key)
+- `lib/mcp/tools.ts` — `setup_profile`, `log_session`, `list_sessions`; they call the shared write logic in `lib/sessions.ts` / `lib/therapists.ts`
+- `app/.well-known/oauth-protected-resource/[[...resource]]/route.ts` — RFC 9728 metadata pointing at `${SUPABASE_URL}/auth/v1`
+- `app/oauth/consent/` — consent screen for Supabase Auth's OAuth 2.1 server (logged-out users go to `/login?next=...`)
+- **Privacy:** never add a free-text field to a tool that writes data. Payer and state are validated against reference lists, so names can't be stored through them.
+- **Supabase dashboard setup (one-time):** Authentication → OAuth Server → enable, allow dynamic client registration,
+  authorization path `/oauth/consent`; Site URL must be the deployed origin.
+- **Testing locally:** the tools accept a normal Supabase session token too. Log in at localhost as a test user, take
+  `access_token` from the `sb-…-auth-token` cookie, and call the endpoint with `Authorization: Bearer <token>`
+  (MCP Inspector: `npx @modelcontextprotocol/inspector`, transport Streamable HTTP, URL `http://localhost:3000/api/mcp`).
+
 ## Navigation
 - **Sidebar:** shadcn `Sidebar` component, icon-rail style, `collapsible="icon"` (collapsed by default, expands on hover/toggle)
 - **`/dashboard` is complete — do not modify it**

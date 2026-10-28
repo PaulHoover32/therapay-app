@@ -4,6 +4,8 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getTherapistContext, TherapistContext } from "@/lib/data";
 import { buildUserDb } from "@/lib/userDb";
+import { insertSessions, SESSION_CODES } from "@/lib/sessions";
+import { updatePracticeInfo } from "@/lib/therapists";
 
 export const runtime = "nodejs";
 
@@ -329,17 +331,13 @@ export async function POST(req: Request) {
             .describe("List of US state abbreviations where the therapist is licensed, e.g. ['CA', 'NY']"),
         }),
         execute: async ({ specialties, years_licensed, license_type, practice_model, states }) => {
-          const updates: Record<string, string | number | string[]> = {};
-          if (specialties !== undefined) updates.specialties = specialties;
-          if (years_licensed !== undefined) updates.years_licensed = years_licensed;
-          if (license_type !== undefined) updates.license_type = license_type;
-          if (practice_model !== undefined) updates.practice_model = practice_model;
-          if (states !== undefined) updates.states = states;
-
-          const { error } = await supabase
-            .from("therapists")
-            .update(updates)
-            .eq("user_id", user.id);
+          const { error } = await updatePracticeInfo(supabase, user.id, {
+            specialties,
+            years_licensed,
+            license_type,
+            practice_model,
+            states,
+          });
           if (error) {
             console.error("Failed to update practice info:", error);
             return { success: false, error: error.message };
@@ -425,7 +423,7 @@ export async function POST(req: Request) {
               z.object({
                 session_datetime: z.string().describe("ISO 8601 datetime, e.g. '2024-03-15T14:00:00'"),
                 amount: z.number().positive().describe("Session fee in dollars"),
-                session_code: z.enum(["90837", "90834", "90847", "90853", "90791"]),
+                session_code: z.enum(SESSION_CODES),
                 state: z.string().length(2).describe("US state abbreviation, e.g. 'CA'"),
                 payer: z.string().describe("Must exactly match a valid reference payer name"),
               })
@@ -435,8 +433,7 @@ export async function POST(req: Request) {
         }),
         execute: async ({ sessions }) => {
           if (!ctx.therapistId) return { success: false, error: "Therapist profile not found." };
-          const rows = sessions.map((s) => ({ ...s, therapist_id: ctx.therapistId }));
-          const { error } = await supabase.from("sessions").insert(rows);
+          const { error } = await insertSessions(supabase, ctx.therapistId, sessions);
           if (error) {
             console.error("Bulk session insert failed:", error);
             return { success: false, error: error.message };

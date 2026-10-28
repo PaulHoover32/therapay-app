@@ -1,34 +1,34 @@
 const features = [
   {
-    icon: "💰",
-    title: "Session Earnings Tracking",
+    icon: "🔗",
+    title: "Connect once",
     description:
-      "Log every session and see your income broken down by client, rate, and date. No more end-of-month surprises.",
+      "Add Therapay as a connector in ChatGPT or Claude and sign in. Takes about two minutes.",
+  },
+  {
+    icon: "🎙️",
+    title: "Log sessions by chat or voice",
+    description:
+      "Tell your AI app the date, payer and amount. Therapay records it. Client names are never stored.",
   },
   {
     icon: "📈",
-    title: "Income Projections",
+    title: "Ask about your income",
     description:
-      "Therapay forecasts your monthly and annual earnings based on your current pace — so you always know where you stand.",
-  },
-  {
-    icon: "📋",
-    title: "Clean Session Ledger",
-    description:
-      "A full history of every session you've logged, filterable and always at your fingertips. Your practice, organized.",
+      "Totals, trends, payer mix, how this month compares to last. Answers come from your own session data.",
   },
 ]
 
 export function Features() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
+    <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-24">
       <div className="mb-16 text-center">
         <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-          Everything you need to run your practice
+          Your AI app becomes your practice bookkeeper
         </h2>
         <p className="text-lg text-muted-foreground">
-          Built specifically for independent therapists who want clarity on
-          their finances.
+          Built for therapists on Headway, Alma, Grow and private pay who want
+          clarity on their income without another app to learn.
         </p>
       </div>
 

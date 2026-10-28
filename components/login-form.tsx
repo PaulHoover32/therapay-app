@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { DEFAULT_AFTER_LOGIN } from "@/lib/safe-next";
 
 const TEST_ACCOUNTS = [
   { email: "sarah@therapay.dev", name: "Dr. Sarah Chen", description: "High earner · $120k goal · mixed payers" },
@@ -24,12 +25,21 @@ const TEST_ACCOUNTS = [
 
 type Mode = "signin" | "signup" | "check-email";
 
+// Seeded demo accounts; never advertise them outside local development
+const SHOW_TEST_ACCOUNTS = process.env.NODE_ENV === "development";
+
 export function LoginForm({
   className,
+  next,
+  initialMode = "signin",
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & {
+  /** Same-origin path to continue to after sign-in (already validated by the page) */
+  next?: string;
+  initialMode?: "signin" | "signup";
+}) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +57,7 @@ export function LoginForm({
       if (authError) {
         setError("Invalid email or password.");
       } else {
-        router.push("/dashboard");
+        router.push(next ?? DEFAULT_AFTER_LOGIN);
         router.refresh();
       }
     } catch {
@@ -76,7 +86,9 @@ export function LoginForm({
         password,
         options: {
           data: { display_name: name.trim(), needs_onboarding: true },
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          emailRedirectTo: next
+            ? `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`
+            : `${window.location.origin}/auth/confirm`,
         },
       });
       if (authError) {
@@ -147,8 +159,8 @@ export function LoginForm({
           <CardTitle>{mode === "signin" ? "Sign in" : "Create account"}</CardTitle>
           <CardDescription>
             {mode === "signin"
-              ? "Enter your credentials to access your dashboard."
-              : "Start tracking your practice earnings today."}
+              ? "One Therapay account works here and in Claude or ChatGPT."
+              : "Track your therapy earnings by talking to the AI app you already use."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -240,7 +252,7 @@ export function LoginForm({
         </CardContent>
       </Card>
 
-      {mode === "signin" && (
+      {mode === "signin" && SHOW_TEST_ACCOUNTS && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Test accounts</CardTitle>

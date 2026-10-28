@@ -15,35 +15,34 @@ export function Hero() {
 
       <div className="mx-auto max-w-3xl">
         <span className="mb-6 inline-block rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-          For independent 1099 therapists
+          For independent 1099 therapists · Works in ChatGPT and Claude
         </span>
 
         <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight sm:text-6xl lg:text-7xl">
-          Know exactly what
+          Track your earnings
           <br />
-          you earn.{" "}
-          <span className="text-muted-foreground">Every session.</span>
+          <span className="text-muted-foreground">by just talking.</span>
         </h1>
 
         <p className="mb-10 text-lg text-muted-foreground sm:text-xl">
-          Therapay tracks your sessions, projects your income, and shows you
-          exactly where your earnings are heading — so you can focus on your
-          clients, not your spreadsheets.
+          Connect Therapay to the AI app you already use. Say &ldquo;log a session from today, I made
+          $150&rdquo; and it&apos;s recorded. Ask &ldquo;how am I doing this month?&rdquo; and get the
+          answer from your own numbers. No new app, no spreadsheets.
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/login">Get Started</Link>
+            <Link href="/login?mode=signup">Get started</Link>
           </Button>
           <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-            <Link href="/login">Log In</Link>
+            <Link href="/pricing">See pricing</Link>
           </Button>
         </div>
       </div>
 
       {/* Scroll hint */}
-      <div className="absolute bottom-10 flex flex-col items-center gap-2 text-xs text-muted-foreground">
-        <span>See what&apos;s inside</span>
+      <div className="absolute bottom-10 hidden flex-col items-center gap-2 text-xs text-muted-foreground sm:flex">
+        <span>How it works</span>
         <div className="h-5 w-px bg-border" />
       </div>
     </section>

@@ -1,11 +1,17 @@
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
+import { safeNext } from "@/lib/safe-next"
 
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/", "/pricing", "/about", "/blog"]
+// Exact paths or /prefix/... — "/" as a prefix would make every path public.
+// /api/mcp and /.well-known do their own bearer-token auth; /oauth/consent sends logged-out
+// users to /login itself so it can carry its authorization_id along.
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/pricing", "/about", "/blog", "/api/mcp", "/.well-known", "/oauth/consent"]
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+  const { pathname, search } = request.nextUrl
+  const isPublic =
+    pathname === "/" ||
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
   let supabaseResponse = NextResponse.next({ request })
 
@@ -35,11 +41,13 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (!user && !isPublic) {
-    return NextResponse.redirect(new URL("/login", request.url))
+    const login = new URL("/login", request.url)
+    login.searchParams.set("next", pathname + search)
+    return NextResponse.redirect(login)
   }
 
   if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.redirect(new URL(safeNext(request.nextUrl.searchParams.get("next")), request.url))
   }
 
   return supabaseResponse

@@ -46,6 +46,42 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          filename: string | null
+          grain: string
+          id: string
+          inserted_count: number
+          row_count: number
+          source: string
+          therapist_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          filename?: string | null
+          grain: string
+          id?: string
+          inserted_count?: number
+          row_count?: number
+          source?: string
+          therapist_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          filename?: string | null
+          grain?: string
+          id?: string
+          inserted_count?: number
+          row_count?: number
+          source?: string
+          therapist_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           annual_income_target: number
@@ -94,6 +130,57 @@ export type Database = {
           target_weeks_worked?: number | null
           user_id?: string
           weekly_hours_growth_per_4w?: number | null
+        }
+        Relationships: []
+      }
+      payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          external_id: string | null
+          id: string
+          import_batch_id: string | null
+          payer: string
+          payout_date: string
+          period_end: string | null
+          period_start: string | null
+          raw: Json | null
+          source: string
+          status: string
+          therapist_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          import_batch_id?: string | null
+          payer: string
+          payout_date: string
+          period_end?: string | null
+          period_start?: string | null
+          raw?: Json | null
+          source?: string
+          status?: string
+          therapist_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          import_batch_id?: string | null
+          payer?: string
+          payout_date?: string
+          period_end?: string | null
+          period_start?: string | null
+          raw?: Json | null
+          source?: string
+          status?: string
+          therapist_id?: string
         }
         Relationships: []
       }
@@ -196,6 +283,30 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_platforms: {
+        Row: {
+          active: boolean
+          id: string
+          name: string
+          payout_lag_days: number
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          name: string
+          payout_lag_days?: number
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          name?: string
+          payout_lag_days?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
       reference_session_codes: {
         Row: {
           active: boolean
@@ -225,9 +336,12 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          import_batch_id: string | null
           payer: string
+          platform: string | null
           session_code: Database["public"]["Enums"]["session_code"]
           session_datetime: string
+          source: string
           state: string
           therapist_id: string
           updated_at: string
@@ -236,9 +350,12 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          import_batch_id?: string | null
           payer: string
+          platform?: string | null
           session_code: Database["public"]["Enums"]["session_code"]
           session_datetime: string
+          source?: string
           state: string
           therapist_id: string
           updated_at?: string
@@ -247,9 +364,12 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          import_batch_id?: string | null
           payer?: string
+          platform?: string | null
           session_code?: Database["public"]["Enums"]["session_code"]
           session_datetime?: string
+          source?: string
           state?: string
           therapist_id?: string
           updated_at?: string

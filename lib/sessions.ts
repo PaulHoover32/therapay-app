@@ -13,9 +13,12 @@ export interface SessionFields {
   session_code: SessionCode;
   state: string;
   payer: string;
+  platform?: string | null;
+  source?: string;
+  import_batch_id?: string | null;
 }
 
-export const SESSION_COLUMNS = "id, session_datetime, amount, session_code, state, payer";
+export const SESSION_COLUMNS = "id, session_datetime, amount, session_code, state, payer, platform, source";
 
 export async function insertSessions(supabase: SupabaseClient, therapistId: string, sessions: SessionFields[]) {
   return supabase
@@ -27,7 +30,7 @@ export async function insertSessions(supabase: SupabaseClient, therapistId: stri
 export async function listSessions(
   supabase: SupabaseClient,
   therapistId: string,
-  { from, to, limit }: { from?: string; to?: string; limit: number }
+  { from, to, limit, payer }: { from?: string; to?: string; limit: number; payer?: string }
 ) {
   let query = supabase
     .from("sessions")
@@ -37,5 +40,6 @@ export async function listSessions(
     .limit(limit);
   if (from) query = query.gte("session_datetime", from);
   if (to) query = query.lt("session_datetime", to);
+  if (payer) query = query.eq("payer", payer);
   return query;
 }

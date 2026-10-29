@@ -3,8 +3,10 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { getLagLookup, workDate } from "@/lib/reconciliation";
 
 type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
+type PayoutRow = Database["public"]["Tables"]["payouts"]["Row"];
 type GoalRow = Database["public"]["Tables"]["goals"]["Row"];
 type RecommendationRow = Database["public"]["Tables"]["recommendations"]["Row"];
 type ReferencePayerRow = Database["public"]["Tables"]["reference_payers"]["Row"];
@@ -38,6 +40,8 @@ export async function buildUserDb(
     { data: recommendations },
     { data: refPayers },
     { data: refSessionCodes },
+    { data: payouts },
+    lagFor,
   ] = await Promise.all([
     supabase.from("sessions").select("*").eq("therapist_id", therapistId),
     supabase.from("goals").select("*").eq("user_id", userId).eq("is_active", true),
@@ -48,6 +52,8 @@ export async function buildUserDb(
       .is("deleted_at", null),
     supabase.from("reference_payers").select("*").eq("active", true),
     supabase.from("reference_session_codes").select("*").eq("active", true),
+    supabase.from("payouts").select("*").eq("therapist_id", therapistId),
+    getLagLookup(supabase),
   ]);
 
   // Build lookup maps from reference tables
@@ -73,7 +79,21 @@ export async function buildUserDb(
       payer TEXT,
       payer_type TEXT,
       session_code TEXT,
-      state TEXT
+      state TEXT,
+      platform TEXT,
+      source TEXT
+    );
+    CREATE TABLE payouts (
+      id TEXT PRIMARY KEY,
+      payer TEXT,
+      payout_date TEXT,
+      amount REAL,
+      currency TEXT,
+      status TEXT,
+      period_start TEXT,
+      period_end TEXT,
+      work_month TEXT,
+      source TEXT
     );
     CREATE TABLE goals (
       id TEXT PRIMARY KEY,
@@ -103,8 +123,8 @@ export async function buildUserDb(
   if (sessions?.length) {
     const stmt = db.prepare(
       `INSERT INTO sessions
-        (id, session_datetime, amount, session_duration, payer, payer_type, session_code, state)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        (id, session_datetime, amount, session_duration, payer, payer_type, session_code, state, platform, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     (sessions as SessionRow[]).forEach((s) => {
       stmt.run([
@@ -116,6 +136,32 @@ export async function buildUserDb(
         payerTypeMap.get(s.payer) ?? "insurance",
         s.session_code,
         s.state,
+        s.platform,
+        s.source,
+      ]);
+    });
+    stmt.free();
+  }
+
+  // work_month: the month of work a payout pays for (same attribution as reconciliation)
+  if (payouts?.length) {
+    const stmt = db.prepare(
+      `INSERT INTO payouts
+        (id, payer, payout_date, amount, currency, status, period_start, period_end, work_month, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    (payouts as PayoutRow[]).forEach((p) => {
+      stmt.run([
+        p.id,
+        p.payer,
+        p.payout_date,
+        Number(p.amount),
+        p.currency,
+        p.status,
+        p.period_start,
+        p.period_end,
+        workDate(p, lagFor(p.payer)).slice(0, 7),
+        p.source,
       ]);
     });
     stmt.free();

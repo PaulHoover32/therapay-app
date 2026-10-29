@@ -17,6 +17,14 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
 - `app/api/mcp/route.ts` — handler wrapped in `withMcpAuth`; every request needs a Supabase access token
 - `lib/mcp/auth.ts` — verifies the token (`auth.getClaims`) and builds a Supabase client *as that user* (RLS applies; no service-role key)
 - `lib/mcp/tools.ts` — `setup_profile`, `log_session`, `list_sessions`; they call the shared write logic in `lib/sessions.ts` / `lib/therapists.ts`
+- `lib/mcp/import-tools.ts` — bulk history: `import_payouts`, `bulk_log_sessions` (dry run by default, per-row errors, ≤500 rows/call,
+  chunks share a `batch_id`), `undo_import`, `list_imports`, `list_payouts`, `get_reconciliation`
+- **Payouts vs sessions:** `payouts` = cash received (lump sums), `sessions` = work performed. Separate tables, never merged; every row
+  has `source` and optional `import_batch_id` (deleting an `import_batches` row cascades = undo). Duplicates are never blocked —
+  overlap with existing rows of the same payer/date range is a warning (`lib/imports.ts`).
+- **Reconciliation** (`lib/reconciliation.ts`): per payer per month, sessions keyed by `coalesce(platform, payer)`, payouts by `payer`,
+  attributed to their period or `payout_date − reference_platforms.payout_lag_days`. Reports gaps, never edits rows.
+  `totals.income` uses received where payouts exist, else expected, so nothing is double-counted.
 - `app/.well-known/oauth-protected-resource/[[...resource]]/route.ts` — RFC 9728 metadata pointing at `${SUPABASE_URL}/auth/v1`
 - `app/oauth/consent/` — consent screen for Supabase Auth's OAuth 2.1 server (logged-out users go to `/login?next=...`)
 - **Privacy:** never add a free-text field to a tool that writes data. Payer and state are validated against reference lists, so names can't be stored through them.

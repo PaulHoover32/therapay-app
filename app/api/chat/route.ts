@@ -76,7 +76,12 @@ These numbers are precomputed from the latest session data. Use them directly wh
 Use the \`queryData\` tool to run SQL SELECT queries against these tables:
 
 ### sessions
-id TEXT, session_datetime TEXT (ISO 8601), amount REAL (dollars), session_duration INTEGER (minutes), payer TEXT (payer name), payer_type TEXT ('insurance'|'self-pay'|'eap'|'sliding-scale'), session_code TEXT, state TEXT
+id TEXT, session_datetime TEXT (ISO 8601), amount REAL (dollars), session_duration INTEGER (minutes), payer TEXT (payer name), payer_type TEXT ('insurance'|'self-pay'|'eap'|'sliding-scale'), session_code TEXT, state TEXT, platform TEXT (Grow Therapy/Headway/… or NULL), source TEXT ('manual'|'bulk_import')
+
+### payouts
+Cash actually received (lump-sum deposits), separate from sessions (work performed). Never add the two together for income.
+id TEXT, payer TEXT (platform or payer), payout_date TEXT (YYYY-MM-DD), amount REAL (net dollars), currency TEXT, status TEXT ('paid'|'pending'|'failed'|'reversed'), period_start TEXT, period_end TEXT, work_month TEXT (YYYY-MM the payout pays for), source TEXT
+To compare earned vs received, group sessions by COALESCE(platform, payer) and month, and payouts (status='paid') by payer and work_month.
 
 ### goals
 id TEXT, goal_year INTEGER, annual_income_target REAL, target_weekly_hours REAL, target_avg_payout REAL, is_active INTEGER (1=active 0=inactive), last_modified_at TEXT, last_modified_by TEXT ('user'|'ai'), optimization_preference TEXT
@@ -433,7 +438,7 @@ export async function POST(req: Request) {
         }),
         execute: async ({ sessions }) => {
           if (!ctx.therapistId) return { success: false, error: "Therapist profile not found." };
-          const { error } = await insertSessions(supabase, ctx.therapistId, sessions);
+          const { error } = await insertSessions(supabase, ctx.therapistId, sessions.map((s) => ({ ...s, source: "bulk_import" })));
           if (error) {
             console.error("Bulk session insert failed:", error);
             return { success: false, error: error.message };

@@ -1,35 +1,15 @@
 import { z } from "zod";
-import type { McpServer, AuthInfo } from "@modelcontextprotocol/server";
-import { mcpUser } from "@/lib/mcp/auth";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { insertSessions, listSessions, SESSION_CODES } from "@/lib/sessions";
-import {
-  getTherapistByUser,
-  getValidLicenseCodes,
-  getValidPayerNames,
-  updatePracticeInfo,
-  US_STATES,
-} from "@/lib/therapists";
+import { getValidLicenseCodes, getValidPayerNames, updatePracticeInfo, US_STATES } from "@/lib/therapists";
+import { getPlatforms } from "@/lib/payouts";
+import { DATE, dayAfter, fail, text, therapistFor } from "@/lib/mcp/helpers";
+import { registerImportTools } from "@/lib/mcp/import-tools";
 
 // No client names are stored: sessions have no free-text fields, and payer/state are checked
 // against fixed reference lists, so a name typed into one of them is rejected, not saved.
 
 const LIST_LIMIT = 500;
-const DATE = /^\d{4}-\d{2}-\d{2}/;
-
-type Ctx = { http?: { authInfo?: AuthInfo } };
-
-const text = (value: unknown) => ({
-  content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }],
-});
-const fail = (message: string) => ({ ...text(message), isError: true });
-
-async function therapistFor(ctx: Ctx) {
-  const user = mcpUser(ctx.http?.authInfo);
-  const { data: therapist, error } = await getTherapistByUser(user.supabase, user.userId);
-  if (error) throw new Error(error.message);
-  if (!therapist) throw new Error("No Therapay profile found for this account.");
-  return { ...user, therapist };
-}
 
 const setupProfileInput = z.object({
   name: z.string().trim().min(1).max(120).optional().describe("The provider's own full name, as it should appear in Therapay"),
@@ -49,18 +29,13 @@ const logSessionInput = z.object({
     .describe("CPT code: 90837 individual 53+ min, 90834 individual 45 min, 90847 couples/family, 90853 group, 90791 intake"),
   payer: z.string().describe("Insurance company or payment source, matching one of Therapay's payer names (e.g. Aetna, Self-Pay)"),
   state: z.string().length(2).describe("2-letter US state where the session took place"),
+  platform: z.string().optional().describe("Platform the session was held through, if any (Grow Therapy, Headway, Alma…)"),
 });
 
 const listSessionsInput = z.object({
   start_date: z.string().regex(DATE).optional().describe("Only sessions on or after this date (YYYY-MM-DD)"),
   end_date: z.string().regex(DATE).optional().describe("Only sessions on or before this date (YYYY-MM-DD)"),
 });
-
-function dayAfter(date: string) {
-  const d = new Date(`${date.slice(0, 10)}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
 
 export function registerTherapayTools(server: McpServer) {
   server.registerTool(
@@ -121,8 +96,15 @@ export function registerTherapayTools(server: McpServer) {
         const payer = payers.find((p) => p.toLowerCase() === input.payer.trim().toLowerCase());
         if (!payer) return fail(`Unknown payer "${input.payer}". Use one of: ${payers.join(", ")}`);
 
+        let platform: string | null = null;
+        if (input.platform) {
+          const platforms = (await getPlatforms(supabase)).map((p) => p.name);
+          platform = platforms.find((p) => p.toLowerCase() === input.platform!.trim().toLowerCase()) ?? null;
+          if (!platform) return fail(`Unknown platform "${input.platform}". Use one of: ${platforms.join(", ")}`);
+        }
+
         const { data, error } = await insertSessions(supabase, therapist.id, [
-          { session_datetime: input.session_date, amount: input.amount, session_code: input.session_code, payer, state },
+          { session_datetime: input.session_date, amount: input.amount, session_code: input.session_code, payer, state, platform },
         ]);
         if (error || !data?.[0]) return fail(`Could not log the session: ${error?.message ?? "no row returned"}`);
         return text({ logged: true, session: data[0], message: `Logged $${input.amount.toFixed(2)} from ${payer}.` });
@@ -138,7 +120,8 @@ export function registerTherapayTools(server: McpServer) {
       title: "List sessions",
       description:
         `Return the provider's logged sessions (date, amount, CPT code, payer, state), newest first, up to ${LIST_LIMIT} rows. ` +
-        "Optionally limit to a date range. Use it to answer questions about earnings, totals, trends or comparisons; " +
+        "Optionally limit to a date range. Use it for what the provider earned (work performed): totals, trends, comparisons. " +
+        "For cash actually received use list_payouts; for earned vs paid use get_reconciliation. " +
         "do the math from the rows. If the result says it was truncated, narrow the date range.",
       inputSchema: listSessionsInput,
       annotations: { readOnlyHint: true },
@@ -159,4 +142,6 @@ export function registerTherapayTools(server: McpServer) {
       }
     }
   );
+
+  registerImportTools(server);
 }

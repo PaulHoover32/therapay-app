@@ -12,7 +12,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
   apple: "Apple",
   azure: "Microsoft",
-  email: "Email link",
+  email: "Email and password",
 }
 
 const formatDate = (iso: string) =>

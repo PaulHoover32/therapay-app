@@ -25,7 +25,7 @@ export function MarketingNav() {
           </nav>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href="/login">Sign in</Link>
+          <Link href="/login">Log In</Link>
         </Button>
       </div>
     </header>

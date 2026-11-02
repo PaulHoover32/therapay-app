@@ -38,7 +38,7 @@ export default async function Page({
           )}
           <LoginForm next={next ? safeNext(next) : undefined} />
           <p className="text-center text-xs text-muted-foreground">
-            New here? Any option above creates your account. No password needed.
+            New here? The link creates your account. No password needed.
           </p>
         </div>
       </main>

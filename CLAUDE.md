@@ -27,8 +27,8 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
   `totals.income` uses received where payouts exist, else expected, so nothing is double-counted.
 - `app/.well-known/oauth-protected-resource/[[...resource]]/route.ts` — RFC 9728 metadata pointing at `${SUPABASE_URL}/auth/v1`
 - `app/oauth/consent/` — consent screen for Supabase Auth's OAuth 2.1 server (logged-out users go to `/login?next=...`)
-- **Front door:** `/login` is the only sign-in/sign-up page — Google, Apple, Microsoft (`azure`) and email magic link, no
-  passwords (dev-only buttons sign in the seeded test accounts). Every method lands on `/auth/callback` (PKCE code
+- **Front door:** `/login` is the only sign-in/sign-up page — email magic link, no passwords (dev-only buttons sign in
+  the seeded test accounts; social providers are deferred). The link lands on `/auth/callback` (PKCE code
   exchange + `ensureTherapist` fallback) and continues to `/connect`; a future pay step goes between them.
   `/connect` polls `/api/connections`; `/account` shows sign-in methods, AI apps (Supabase OAuth grants, revocable),
   sign out and delete (`delete_my_account()` RPC).

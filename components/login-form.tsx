@@ -2,25 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Provider } from "@supabase/supabase-js";
 import { Loader2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { AppleIcon, GoogleIcon, MicrosoftIcon } from "@/components/auth/ProviderIcons";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { DEFAULT_AFTER_LOGIN } from "@/lib/safe-next";
 
-// Sign-up and sign-in are the same action: every method creates the account on first use.
+// Sign-up and sign-in are the same action: the magic link creates the account on first use.
 // No passwords; the seeded demo accounts below are a local-development shortcut only.
-
-const PROVIDERS: { id: Provider; label: string; Icon: typeof GoogleIcon; scopes?: string }[] = [
-  { id: "google", label: "Continue with Google", Icon: GoogleIcon },
-  { id: "apple", label: "Continue with Apple", Icon: AppleIcon },
-  { id: "azure", label: "Continue with Microsoft", Icon: MicrosoftIcon, scopes: "email" },
-];
+// Social sign-in (Google/Apple/Microsoft) can be added later with signInWithOAuth and the same
+// /auth/callback, once the providers are configured in Supabase.
 
 const TEST_ACCOUNTS = ["sarah@therapay.dev", "marcus@therapay.dev", "jordan@therapay.dev"];
 const SHOW_TEST_ACCOUNTS = process.env.NODE_ENV === "development";
@@ -44,20 +37,6 @@ export function LoginForm({
     url.searchParams.set("next", next ?? DEFAULT_AFTER_LOGIN);
     return url.toString();
   };
-
-  async function withProvider(provider: (typeof PROVIDERS)[number]) {
-    setError("");
-    setPending(provider.id);
-    const { error: authError } = await createSupabaseBrowserClient().auth.signInWithOAuth({
-      provider: provider.id,
-      options: { redirectTo: callbackUrl(), scopes: provider.scopes },
-    });
-    // On success the browser is already navigating to the provider
-    if (authError) {
-      setError(authError.message);
-      setPending(null);
-    }
-  }
 
   async function withEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -112,29 +91,6 @@ export function LoginForm({
 
   return (
     <div className={cn("space-y-6", className)} {...props}>
-      <div className="space-y-3">
-        {PROVIDERS.map((p, i) => (
-          <Button
-            key={p.id}
-            type="button"
-            size="lg"
-            variant={i === 0 ? "default" : "outline"}
-            className="w-full"
-            disabled={pending !== null}
-            onClick={() => withProvider(p)}
-          >
-            {pending === p.id ? <Loader2 className="size-4 animate-spin" /> : <p.Icon className="size-4" />}
-            {p.label}
-          </Button>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <Separator className="flex-1" />
-        or use your email
-        <Separator className="flex-1" />
-      </div>
-
       <form onSubmit={withEmail} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="email" className="sr-only">
@@ -151,8 +107,8 @@ export function LoginForm({
             inputMode="email"
           />
         </div>
-        <Button type="submit" variant="secondary" size="lg" className="w-full" disabled={pending !== null}>
-          {pending === "email" && <Loader2 className="size-4 animate-spin" />}
+        <Button type="submit" size="lg" className="w-full" disabled={pending !== null}>
+          {pending === "email" ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
           Email me a sign-in link
         </Button>
       </form>

@@ -133,6 +133,27 @@ export type Database = {
         }
         Relationships: []
       }
+      mcp_connections: {
+        Row: {
+          client_id: string
+          first_seen_at: string
+          last_seen_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          first_seen_at?: string
+          last_seen_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          first_seen_at?: string
+          last_seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payouts: {
         Row: {
           amount: number
@@ -434,7 +455,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_my_account: { Args: never; Returns: undefined }
     }
     Enums: {
       appointment_type: "individual" | "couples" | "family" | "group"

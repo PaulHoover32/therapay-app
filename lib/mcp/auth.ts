@@ -16,11 +16,31 @@ export function supabaseForToken(token: string): SupabaseClient {
   });
 }
 
+// getClaims only checks the signature, so a token stays valid until it expires even after the
+// user disconnects the app (revoking the grant deletes its session). Ask the auth server whether
+// the session still exists, remembering a "yes" briefly so it isn't a round trip per request.
+const LIVE_FOR_MS = 60 * 1000;
+const liveUntil = new Map<string, number>();
+
+async function sessionIsLive(token: string) {
+  const now = Date.now();
+  if ((liveUntil.get(token) ?? 0) > now) return true;
+  const { data, error } = await supabaseForToken(token).auth.getUser(token);
+  if (error || !data.user) {
+    liveUntil.delete(token);
+    return false;
+  }
+  if (liveUntil.size > 1000) liveUntil.clear();
+  liveUntil.set(token, now + LIVE_FOR_MS);
+  return true;
+}
+
 export async function verifySupabaseToken(_req: Request, token?: string): Promise<AuthInfo | undefined> {
   if (!token) return undefined;
   const { data, error } = await supabaseForToken(token).auth.getClaims(token);
   const claims = data?.claims;
   if (error || !claims?.sub || claims.role !== "authenticated") return undefined;
+  if (!(await sessionIsLive(token))) return undefined;
   // OAuth-issued tokens carry the client_id: note that this AI app is connected (powers the
   // connection status on /connect and /account)
   if (typeof claims.client_id === "string") {

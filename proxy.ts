@@ -5,7 +5,7 @@ import { safeNext } from "@/lib/safe-next"
 // Exact paths or /prefix/... — "/" as a prefix would make every path public.
 // /api/mcp and /.well-known do their own bearer-token auth; /oauth/consent sends logged-out
 // users to /login itself so it can carry its authorization_id along.
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/pricing", "/about", "/blog", "/api/mcp", "/.well-known", "/oauth/consent"]
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/callback", "/pricing", "/about", "/blog", "/api/mcp", "/.well-known", "/oauth/consent"]
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl

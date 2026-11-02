@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Check, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export function CopyField({ value }: { value: string }) {
+export function CopyField({ value, label = "Copy connector URL" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -20,7 +20,7 @@ export function CopyField({ value }: { value: string }) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-1.5 pl-3">
       <code className="min-w-0 flex-1 truncate font-mono text-sm select-all">{value}</code>
-      <Button type="button" size="sm" variant="secondary" onClick={copy} aria-label="Copy connector URL">
+      <Button type="button" size="sm" variant="secondary" onClick={copy} aria-label={label}>
         {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
         {copied ? "Copied" : "Copy"}
       </Button>

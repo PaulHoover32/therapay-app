@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { AuthInfo } from "@modelcontextprotocol/server";
+import { touchConnection } from "@/lib/connections";
 
 // Supabase Auth is the OAuth 2.1 authorization server for MCP clients (Claude, ChatGPT).
 // The access tokens it issues are ordinary Supabase user JWTs, so a client created with the
@@ -20,6 +21,11 @@ export async function verifySupabaseToken(_req: Request, token?: string): Promis
   const { data, error } = await supabaseForToken(token).auth.getClaims(token);
   const claims = data?.claims;
   if (error || !claims?.sub || claims.role !== "authenticated") return undefined;
+  // OAuth-issued tokens carry the client_id: note that this AI app is connected (powers the
+  // connection status on /connect and /account)
+  if (typeof claims.client_id === "string") {
+    await touchConnection(supabaseForToken(token), claims.sub, claims.client_id);
+  }
   return {
     token,
     // OAuth-issued tokens carry the client_id; a plain app session token doesn't

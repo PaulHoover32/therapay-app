@@ -6,8 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const token_hash = searchParams.get("token_hash")
   const type = searchParams.get("type") as "signup" | "recovery" | "email" | null
-  // New signups go through the (future) billing step before getting their connector URL
-  const next = safeNext(searchParams.get("next"), type === "signup" ? "/onboarding/billing" : undefined)
+  const next = safeNext(searchParams.get("next"))
 
   if (token_hash && type) {
     const response = NextResponse.redirect(new URL(next, origin))

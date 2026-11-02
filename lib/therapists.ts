@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 // Profile fields a therapist can set about their practice. The row itself is created at signup
 // by the handle_new_user trigger, so this only ever updates.
@@ -17,6 +17,19 @@ export const PROFILE_COLUMNS =
 
 export async function getTherapistByUser(supabase: SupabaseClient, userId: string) {
   return supabase.from("therapists").select(PROFILE_COLUMNS).eq("user_id", userId).maybeSingle();
+}
+
+/**
+ * The signup trigger creates the profile row; this is the fallback for any user who somehow has
+ * none, so a returning user always lands on their one existing profile and never a duplicate.
+ */
+export async function ensureTherapist(supabase: SupabaseClient, user: User) {
+  const { data } = await getTherapistByUser(supabase, user.id);
+  if (data) return;
+  const meta = user.user_metadata ?? {};
+  const name = [meta.display_name, meta.full_name, meta.name].find((v) => typeof v === "string" && v.trim()) ?? "";
+  // on conflict: a concurrent trigger insert wins, which is fine
+  await supabase.from("therapists").upsert({ user_id: user.id, name, avg_session_duration: 50 }, { onConflict: "user_id", ignoreDuplicates: true });
 }
 
 export async function updatePracticeInfo(supabase: SupabaseClient, userId: string, info: PracticeInfo) {

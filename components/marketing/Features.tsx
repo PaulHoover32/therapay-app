@@ -7,15 +7,15 @@ const features = [
   },
   {
     icon: "🎙️",
-    title: "Log sessions by chat or voice",
+    title: "Import your payouts",
     description:
-      "Tell your AI app the date, payer and amount. Therapay records it. Client names are never stored.",
+      "Give your AI app your Stripe or platform payout export and it imports it. No session or client details are ever stored.",
   },
   {
     icon: "📈",
     title: "Ask about your income",
     description:
-      "Totals, trends, payer mix, how this month compares to last. Answers come from your own session data.",
+      "Totals, trends, payer mix, how this month compares to last. Answers come from your own payouts.",
   },
 ]
 

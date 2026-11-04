@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Import batches group bulk-imported sessions or payouts so a whole import can be reviewed or
+// Import batches group bulk-imported payouts so a whole import can be reviewed or
 // undone. Duplicates are never blocked (rows are anonymized, so identical rows are legitimate);
 // instead, an import that overlaps existing rows of the same grain and payer gets a warning.
 
-export type Grain = "session" | "payout";
+export type Grain = "payout";
 
 export const BATCH_COLUMNS = "id, source, grain, filename, row_count, inserted_count, created_at, updated_at";
 
@@ -30,8 +30,8 @@ export interface Overlap {
   message: string;
 }
 
-const TABLE = { session: "sessions", payout: "payouts" } as const;
-const DATE_COLUMN = { session: "session_datetime", payout: "payout_date" } as const;
+const TABLE = { payout: "payouts" } as const;
+const DATE_COLUMN = { payout: "payout_date" } as const;
 
 const round = (n: number) => Math.round(n * 100) / 100;
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
@@ -94,7 +94,7 @@ export async function batchContents(supabase: SupabaseClient, batch: BatchRow) {
   return { count: data.length, total: round(data.reduce((t, r) => t + Number(r.amount), 0)) };
 }
 
-/** Deleting the batch removes its sessions or payouts too (on delete cascade). */
+/** Deleting the batch removes its payouts too (on delete cascade). */
 export async function deleteBatch(supabase: SupabaseClient, therapistId: string, id: string) {
   return supabase.from("import_batches").delete().eq("therapist_id", therapistId).eq("id", id);
 }
@@ -123,7 +123,7 @@ export async function findOverlaps(
     }
   }
 
-  const noun = grain === "session" ? "sessions" : "payouts";
+  const noun = "payouts";
   const overlaps = await Promise.all(
     [...byPayer].map(async ([payer, g]) => {
       let query = supabase

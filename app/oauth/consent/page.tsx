@@ -41,8 +41,8 @@ export default async function ConsentPage({
           <p>{clientName} will be able to:</p>
           <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
             <li>Read and update your practice profile</li>
-            <li>Log sessions and the amounts you earned</li>
-            <li>Read your logged sessions to answer questions about your income</li>
+            <li>Import and read your payouts (deposits from Grow, Headway, Stripe…)</li>
+            <li>Answer questions about your income from those payouts</li>
           </ul>
           <p className="text-muted-foreground">
             Therapay never stores client names. You can disconnect any time from {clientName}&apos;s settings.

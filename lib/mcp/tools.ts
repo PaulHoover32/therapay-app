@@ -3,6 +3,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { getValidLicenseCodes, updatePracticeInfo, US_STATES } from "@/lib/therapists";
 import { fail, text, therapistFor } from "@/lib/mcp/helpers";
 import { registerImportTools } from "@/lib/mcp/import-tools";
+import { registerPlanningTools } from "@/lib/mcp/planning-tools";
+import { registerPrompts } from "@/lib/mcp/prompts";
 
 // No client data is stored: Therapay keeps no per-session records, and no tool that writes data
 // takes free text.
@@ -55,4 +57,6 @@ export function registerTherapayTools(server: McpServer) {
   );
 
   registerImportTools(server);
+  registerPlanningTools(server);
+  registerPrompts(server);
 }

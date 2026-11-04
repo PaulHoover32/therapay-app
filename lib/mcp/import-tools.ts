@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/database.types";
-import { DATE, dayAfter, fail, text, therapistFor, type Ctx } from "@/lib/mcp/helpers";
+import { DATE, dayAfter, fail, isJunkPayer, resolveName, text, therapistFor, type Ctx } from "@/lib/mcp/helpers";
 import { getPlatforms, insertPayouts, listPayouts, PAYOUT_STATUSES, type PayoutFields, type PayoutStatus } from "@/lib/payouts";
 import { getValidPayerNames } from "@/lib/therapists";
 import {
@@ -10,7 +10,10 @@ import {
   createBatch,
   deleteBatch,
   extendBatch,
+  existingStripeIds,
   findOverlaps,
+  isStripePayoutId,
+  splitDuplicates,
   formatRange,
   getBatch,
   listBatches,
@@ -28,8 +31,6 @@ const LIST_LIMIT = 500;
 
 const round = (n: number) => Math.round(n * 100) / 100;
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const isJunkPayer = (name: string) => /^Payer_\d+$/.test(name);
 
 // ---------- field parsing ----------
 
@@ -61,17 +62,6 @@ function parseAmount(value: unknown): number | null {
   if (/^\(.*\)$/.test(s)) [s, sign] = [s.slice(1, -1), -1];
   if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
   return sign * Number(s);
-}
-
-/** Exact (case-insensitive) match, else a unique match on the first word ("Grow" → "Grow Therapy"). */
-function resolveName(input: string | undefined, names: string[]) {
-  if (!input?.trim()) return null;
-  const n = norm(input);
-  const exact = names.find((name) => norm(name) === n);
-  if (exact) return exact;
-  const first = n.split(" ")[0];
-  const byWord = names.filter((name) => norm(name).split(" ")[0] === first);
-  return byWord.length === 1 ? byWord[0] : null;
 }
 
 const STRIPE_STATUS: Record<string, PayoutStatus> = {
@@ -172,6 +162,25 @@ interface Prepared<T> {
   detected: string;
 }
 
+/** Flags exports that look cut short: nothing recent, or last year only partly covered. */
+function coverageWarnings(sortedDates: string[]) {
+  if (!sortedDates.length) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const year = Number(today.slice(0, 4));
+  const first = sortedDates[0];
+  const last = sortedDates[sortedDates.length - 1];
+  const warnings: string[] = [];
+  const recent = new Date(`${today}T00:00:00Z`);
+  recent.setUTCDate(recent.getUTCDate() - 45);
+  if (last < recent.toISOString().slice(0, 10)) {
+    warnings.push(`The newest payout in this data is ${formatRange(last, last)}. If you've been paid since, the export may be cut short: check for more recent payouts.`);
+  }
+  if (first > `${year - 1}-01-31`) {
+    warnings.push(`This data starts ${formatRange(first, first)}, so ${year - 1} isn't fully covered and year-over-year comparisons will be partial. An export going back to January ${year - 1} fixes that.`);
+  }
+  return warnings;
+}
+
 async function runImport<T>(
   supabase: SupabaseClient,
   therapistId: string,
@@ -180,8 +189,13 @@ async function runImport<T>(
   prepared: Prepared<T>,
   insert: (rows: T[], batchId: string) => PromiseLike<{ error: { message: string } | null; count: number }>
 ) {
-  const { grain, valid, invalid } = prepared;
+  const { grain, invalid } = prepared;
   const noun = "payouts";
+
+  // Never store the same Stripe payout twice: skip IDs already saved or repeated in this file
+  const idOf = (v: (typeof prepared.valid)[number]) => (v.fields as { external_id?: string | null }).external_id;
+  const existing = await existingStripeIds(supabase, therapistId, prepared.valid.map(idOf).filter(isStripePayoutId));
+  const { keep: valid, skipped } = splitDuplicates(prepared.valid, idOf, existing);
 
   let batch: BatchRow | null = null;
   if (input.batch_id) {
@@ -232,7 +246,9 @@ async function runImport<T>(
     ? valid.length
       ? `Show the user this summary${overlaps.length ? ", including the overlap warning" : ""} and ask them to confirm. ` +
         `Then call again with the same rows and dry_run=false${batch ? ` and batch_id=${batch.id}` : ""}.`
-      : `Nothing to import: every row was invalid. Fix the rows listed under invalid_rows and try again.`
+      : skipped.length && !invalid.length
+        ? `Nothing new to import: all ${skipped.length} payouts are already saved.`
+        : `Nothing to import: every row was invalid or already saved. Fix the rows listed under invalid_rows and try again.`
     : `Saved ${inserted} ${noun} to batch ${batch?.id}. For more chunks of this import, pass batch_id=${batch?.id}. ` +
       `To reverse the whole import, call undo_import with this batch_id.`;
 
@@ -247,7 +263,9 @@ async function runImport<T>(
     invalid_count: invalid.length,
     invalid_rows: invalid,
     overlap_warnings: overlaps,
+    skipped_duplicates: skipped.map((s) => ({ row: s.row.row, external_id: s.external_id, reason: s.reason })),
     row_warnings: prepared.rowWarnings,
+    coverage_warnings: coverageWarnings(dates),
     date_range: dates.length ? { from: dates[0], to: dates[dates.length - 1], label: formatRange(dates[0], dates[dates.length - 1]) } : null,
     total_amount: total,
     by_payer: byPayer,
@@ -289,6 +307,7 @@ async function preparePayouts(supabase: SupabaseClient, rows: z.infer<typeof pay
     if (errors.length) return invalid.push({ row, errors });
     const { raw, dropped } = sanitizeRaw(r.raw, known);
     if (dropped.length) rowWarnings.push({ row, warning: `Not stored from raw (could contain names): ${dropped.join(", ")}` });
+    if (payer === "Stripe") rowWarnings.push({ row, warning: "Payer recorded as Stripe. If these are Grow Therapy payouts (paid via Stripe Express), use payer \"Grow Therapy\" so they're tracked under Grow." });
     if (currency !== "USD") rowWarnings.push({ row, warning: `Currency ${currency}: totals treat amounts as USD.` });
     valid.push({
       row,
@@ -325,7 +344,8 @@ export function registerImportTools(server: McpServer) {
         "Bulk-import payout history: lump-sum deposits the provider RECEIVED from a platform or payer (Grow Therapy via Stripe Express, " +
         "Headway, Alma, an insurer…). The user may give you a CSV, a spreadsheet, pasted dashboard or statement text, or a screenshot: " +
         "extract each payout yourself and map it to these fields. A Stripe Express payout export usually has the payout ID (po_...), " +
-        "amount, arrival date (use it as payout_date) and status. Payout signals: payout IDs, arrival/deposit dates, larger lump sums, " +
+        "amount, arrival date (use it as payout_date) and status. Grow Therapy pays through Stripe Express: use payer \"Grow Therapy\" " +
+        "for those, not \"Stripe\". Payout signals: payout IDs, arrival/deposit dates, larger lump sums, " +
         "a weekly cadence. If rows have CPT codes, client details or one row per appointment, they are per-session records, which Therapay " +
         "deliberately does not store: don't import them; explain that only payouts are imported. " +
         "If the data is mixed or you can't tell, or the payer is unclear, ASK the user rather than guessing. " +

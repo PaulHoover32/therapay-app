@@ -155,3 +155,47 @@ export async function findOverlaps(
   );
   return overlaps.filter((o): o is Overlap => o !== null);
 }
+
+/** A real Stripe payout ID; only these are unique per therapist (see payouts_stripe_payout_id_unique). */
+export const isStripePayoutId = (id: string | null | undefined): id is string => !!id && id.startsWith("po_");
+
+/**
+ * Splits rows into ones to save and repeats to skip: a Stripe payout ID already stored, or seen
+ * earlier in the same file. Rows without a Stripe ID are never skipped (identical-looking rows are
+ * legitimate). Used by both the dry run and the real import, so the preview matches what's saved.
+ */
+export function splitDuplicates<V>(rows: V[], idOf: (row: V) => string | null | undefined, existing: Set<string>) {
+  const seen = new Set<string>();
+  const keep: V[] = [];
+  const skipped: { row: V; external_id: string; reason: "already_imported" | "repeated_in_file" }[] = [];
+  for (const row of rows) {
+    const id = idOf(row);
+    if (!isStripePayoutId(id)) {
+      keep.push(row);
+    } else if (existing.has(id)) {
+      skipped.push({ row, external_id: id, reason: "already_imported" });
+    } else if (seen.has(id)) {
+      skipped.push({ row, external_id: id, reason: "repeated_in_file" });
+    } else {
+      seen.add(id);
+      keep.push(row);
+    }
+  }
+  return { keep, skipped };
+}
+
+/** Which of these Stripe payout IDs this therapist already has. */
+export async function existingStripeIds(supabase: SupabaseClient, therapistId: string, ids: string[]) {
+  const found = new Set<string>();
+  const unique = [...new Set(ids.filter(isStripePayoutId))];
+  for (let i = 0; i < unique.length; i += 200) {
+    const { data, error } = await supabase
+      .from("payouts")
+      .select("external_id")
+      .eq("therapist_id", therapistId)
+      .in("external_id", unique.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) if (r.external_id) found.add(r.external_id);
+  }
+  return found;
+}

@@ -145,7 +145,13 @@ describe("rates", () => {
   it("uses the rate in force for the month", () => {
     expect(rateFor(rates, { payer: "Aetna", platform: "", cpt_code: "90837" }, "2026-06")).toBe(140);
     expect(rateFor(rates, { payer: "Aetna", platform: "", cpt_code: "90837" }, "2026-08")).toBe(120);
-    expect(rateFor(rates, { payer: "Aetna", platform: "", cpt_code: "90837" }, "2025-12")).toBeNull();
+    expect(rateFor(rates, { payer: "Aetna", platform: "", cpt_code: "90837" }, "2025-12")).toBe(140);
+    expect(rateFor(rates, { payer: "Cigna", platform: "", cpt_code: "90837" }, "2026-08")).toBeNull();
+  });
+  it("weights by counts logged before the rate card was entered", () => {
+    const enteredToday: RateLite[] = [{ payer: "Aetna", platform: "", cpt_code: "90837", rate: 150, effective_from: "2026-11-01" }];
+    const october: VolumeLite[] = [{ month: "2026-10-01", payer: "Aetna", platform: "", cpt_code: "90837", completed: 30, no_shows: 0, late_cancels: 0, late_cancel_fee: 0 }];
+    expect(blendedRate(enteredToday, october, ["2026-10"], "2026-11")).toMatchObject({ rate: 150, weighted: true, sessions: 30 });
   });
   it("falls back to an unweighted average of current rates without counts", () => {
     expect(blendedRate(rates, [], ["2026-10"], "2026-11")).toMatchObject({ rate: 120, weighted: false });

@@ -96,12 +96,18 @@ export function settledThrough(payouts: PayoutLite[], lagFor: LagFor, today: str
   return { month: m, lag, settlesOn: (ym: string) => addDays(monthEnd(ym), lag + 1) };
 }
 
-/** The rate in force for a payer/platform/code in a month (latest effective_from on or before it). */
+/**
+ * The rate in force for a payer/platform/code in a month: the latest effective_from on or before
+ * it. Months before the first rate on file use that first rate (a rate card entered today
+ * describes what she's been paid, unless a later row records a change).
+ */
 export function rateFor(rates: RateLite[], v: { payer: string; platform: string; cpt_code: string }, ym: string) {
-  const match = rates
-    .filter((r) => r.payer === v.payer && r.platform === v.platform && r.cpt_code === v.cpt_code && month(r.effective_from) <= ym)
-    .sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
-  return match ? Number(match.rate) : null;
+  const forKey = rates
+    .filter((r) => r.payer === v.payer && r.platform === v.platform && r.cpt_code === v.cpt_code)
+    .sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+  if (!forKey.length) return null;
+  const inForce = forKey.filter((r) => month(r.effective_from) <= ym).pop() ?? forKey[0];
+  return Number(inForce.rate);
 }
 
 /** Current rate per payer/platform/code (latest effective_from on or before this month). */

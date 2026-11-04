@@ -7,7 +7,7 @@ import { ConnectionStatus } from "@/components/onboarding/ConnectionStatus"
 import { createSupabaseServerClient } from "@/lib/supabase-server"
 import { listConnections } from "@/lib/connections"
 
-const FIRST_PROMPT = "Set up my Therapay profile."
+const FIRST_PROMPT = "Set up Therapay"
 
 async function connectorUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/api/mcp`
@@ -99,7 +99,8 @@ export default async function ConnectPage() {
         <CardHeader>
           <CardTitle className="text-base">Then try your first prompt</CardTitle>
           <CardDescription>
-            In a new chat (in Claude, turn Therapay on from the + menu), say or type:
+            In a new chat (in Claude, turn Therapay on from the + menu), pick the &ldquo;Set up Therapay&rdquo; prompt or
+            just say:
           </CardDescription>
         </CardHeader>
         <CardContent>

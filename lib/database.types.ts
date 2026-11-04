@@ -122,6 +122,87 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_volume: {
+        Row: {
+          completed: number
+          cpt_code: string
+          created_at: string
+          id: string
+          late_cancel_fee: number
+          late_cancels: number
+          month: string
+          no_shows: number
+          payer: string
+          platform: string
+          source: string
+          therapist_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: number
+          cpt_code?: string
+          created_at?: string
+          id?: string
+          late_cancel_fee?: number
+          late_cancels?: number
+          month: string
+          no_shows?: number
+          payer: string
+          platform?: string
+          source?: string
+          therapist_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: number
+          cpt_code?: string
+          created_at?: string
+          id?: string
+          late_cancel_fee?: number
+          late_cancels?: number
+          month?: string
+          no_shows?: number
+          payer?: string
+          platform?: string
+          source?: string
+          therapist_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payer_rates: {
+        Row: {
+          cpt_code: string
+          created_at: string
+          effective_from: string
+          id: string
+          payer: string
+          platform: string
+          rate: number
+          therapist_id: string
+        }
+        Insert: {
+          cpt_code: string
+          created_at?: string
+          effective_from: string
+          id?: string
+          payer: string
+          platform?: string
+          rate: number
+          therapist_id: string
+        }
+        Update: {
+          cpt_code?: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          payer?: string
+          platform?: string
+          rate?: number
+          therapist_id?: string
+        }
+        Relationships: []
+      }
       payouts: {
         Row: {
           amount: number

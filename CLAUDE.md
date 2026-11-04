@@ -29,7 +29,14 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
 - `lib/mcp/import-tools.ts` — payout history: `import_payouts` (dry run by default, per-row errors, ≤500 rows/call, chunks share
   a `batch_id`; rows that look like per-session records are rejected), `undo_import`, `list_imports`, `list_payouts`
 - **Payouts:** every row has `source` and optional `import_batch_id` (deleting an `import_batches` row cascades = undo). Overlap
-  with existing payouts of the same payer/date range is a warning (`lib/imports.ts`).
+  with existing payouts of the same payer/date range is a warning; Stripe `po_` IDs are unique per therapist and repeats are
+  skipped in both dry run and real import (`lib/imports.ts` `splitDuplicates`).
+- `lib/mcp/planning-tools.ts` — `check_in` (am I on track?), `set_rate_card` (payer × CPT code, with history), `log_month`
+  (counts per payer × CPT + no-shows, upsert), `set_goal` (dollar target or growth %, numbers only, `lib/planning.ts`)
+- `lib/pacing.ts` — the check-in math, **payouts only**: monthly series by work month (payout date − lag per paying entity),
+  settled cutoff (month end + max lag), seasonal/run-rate projection, levers priced from the rate card. Pure functions,
+  tested in `lib/pacing.test.ts` (`npm test`, Vitest).
+- `lib/mcp/prompts.ts` — MCP prompts: Set up Therapay, Monthly check-in, Am I on track?
 - `app/.well-known/oauth-protected-resource/[[...resource]]/route.ts` — RFC 9728 metadata pointing at `${SUPABASE_URL}/auth/v1`
 - `app/oauth/consent/` — consent screen for Supabase Auth's OAuth 2.1 server (logged-out users go to `/login?next=...`)
 - **Front door:** `/login` is the shared sign-in/sign-up page — email + password (signup confirms via `/auth/confirm`).
@@ -158,6 +165,7 @@ curl -s -X POST "https://pbijbpfgmcbtipuebsnn.supabase.co/auth/v1/token?grant_ty
 npm run dev       # Start dev server (localhost:3000)
 npm run build     # Production build
 npm run lint      # Run ESLint
+npm test          # Vitest unit tests (lib/**/*.test.ts)
 npx shadcn@latest add <component>  # Add a shadcn component
 ```
 

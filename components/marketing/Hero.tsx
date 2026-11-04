@@ -25,9 +25,9 @@ export function Hero() {
         </h1>
 
         <p className="mb-10 text-lg text-muted-foreground sm:text-xl">
-          Connect Therapay to the AI app you already use. Say &ldquo;log a session from today, I made
-          $150&rdquo; and it&apos;s recorded. Ask &ldquo;how am I doing this month?&rdquo; and get the
-          answer from your own numbers. No new app, no spreadsheets.
+          Connect Therapay to the AI app you already use. Hand it your payout history, then ask
+          &ldquo;am I on track to beat last year?&rdquo; and get the answer from your own numbers. No new
+          app, no spreadsheets.
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

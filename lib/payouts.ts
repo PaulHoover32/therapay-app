@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/database.types";
 
-// Payouts are cash received (weekly lump sums from Grow, Headway, …). They live apart from
-// sessions (work performed) and are never merged with them; reconciliation compares the two.
+// Payouts are cash received (weekly lump sums from Grow, Headway, …) and Therapay's only source
+// for income.
 
 export const PAYOUT_STATUSES = ["paid", "pending", "failed", "reversed"] as const;
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];

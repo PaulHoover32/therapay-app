@@ -108,8 +108,8 @@ export default async function ConnectPage() {
       </Card>
 
       <p className="text-sm text-muted-foreground">
-        Never mention client names to your AI app when logging sessions. Therapay only records the date, amount,
-        session code, payer and state.
+        Never mention client names to your AI app. Therapay stores your profile and payouts only, never session or
+        client details.
       </p>
     </div>
   )

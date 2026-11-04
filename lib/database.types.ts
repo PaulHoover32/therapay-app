@@ -14,38 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      chat_sessions: {
-        Row: {
-          created_at: string
-          id: string
-          messages: Json
-          recommendation_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          messages?: Json
-          recommendation_id?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          messages?: Json
-          recommendation_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_sessions_recommendation_id_fkey"
-            columns: ["recommendation_id"]
-            isOneToOne: false
-            referencedRelation: "recommendations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       import_batches: {
         Row: {
           created_at: string
@@ -205,63 +173,6 @@ export type Database = {
         }
         Relationships: []
       }
-      recommendations: {
-        Row: {
-          annual_income_target: number
-          avg_payout_at_time: number
-          avg_payout_growth_per_4w: number | null
-          avg_weekly_hours_at_time: number
-          created_at: string
-          deleted_at: string | null
-          goal_year: number
-          id: string
-          reasoning: string
-          summary: string
-          target_avg_payout: number
-          target_weekly_hours: number
-          user_id: string
-          weekly_hours_growth_per_4w: number | null
-          weeks_remaining_at_input: number
-          ytd_revenue_at_time: number
-        }
-        Insert: {
-          annual_income_target: number
-          avg_payout_at_time: number
-          avg_payout_growth_per_4w?: number | null
-          avg_weekly_hours_at_time: number
-          created_at?: string
-          deleted_at?: string | null
-          goal_year: number
-          id?: string
-          reasoning: string
-          summary: string
-          target_avg_payout: number
-          target_weekly_hours: number
-          user_id: string
-          weekly_hours_growth_per_4w?: number | null
-          weeks_remaining_at_input: number
-          ytd_revenue_at_time: number
-        }
-        Update: {
-          annual_income_target?: number
-          avg_payout_at_time?: number
-          avg_payout_growth_per_4w?: number | null
-          avg_weekly_hours_at_time?: number
-          created_at?: string
-          deleted_at?: string | null
-          goal_year?: number
-          id?: string
-          reasoning?: string
-          summary?: string
-          target_avg_payout?: number
-          target_weekly_hours?: number
-          user_id?: string
-          weekly_hours_growth_per_4w?: number | null
-          weeks_remaining_at_input?: number
-          ytd_revenue_at_time?: number
-        }
-        Relationships: []
-      }
       reference_licensures: {
         Row: {
           code: string
@@ -352,59 +263,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sessions: {
-        Row: {
-          amount: number
-          created_at: string
-          id: string
-          import_batch_id: string | null
-          payer: string
-          platform: string | null
-          session_code: Database["public"]["Enums"]["session_code"]
-          session_datetime: string
-          source: string
-          state: string
-          therapist_id: string
-          updated_at: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          id?: string
-          import_batch_id?: string | null
-          payer: string
-          platform?: string | null
-          session_code: Database["public"]["Enums"]["session_code"]
-          session_datetime: string
-          source?: string
-          state: string
-          therapist_id: string
-          updated_at?: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          id?: string
-          import_batch_id?: string | null
-          payer?: string
-          platform?: string | null
-          session_code?: Database["public"]["Enums"]["session_code"]
-          session_datetime?: string
-          source?: string
-          state?: string
-          therapist_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sessions_therapist_id_fkey"
-            columns: ["therapist_id"]
-            isOneToOne: false
-            referencedRelation: "therapists"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       therapists: {
         Row: {
           avg_session_duration: number
@@ -460,7 +318,6 @@ export type Database = {
     Enums: {
       appointment_type: "individual" | "couples" | "family" | "group"
       payment_option: "insurance" | "self-pay" | "sliding-scale" | "eap"
-      session_code: "90837" | "90834" | "90847" | "90853" | "90791"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -523,7 +380,6 @@ export const Constants = {
     Enums: {
       appointment_type: ["individual", "couples", "family", "group"],
       payment_option: ["insurance", "self-pay", "sliding-scale", "eap"],
-      session_code: ["90837", "90834", "90847", "90853", "90791"],
     },
   },
 } as const

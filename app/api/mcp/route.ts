@@ -12,7 +12,10 @@ const handler = createMcpHandler(registerTherapayTools, {
     "payer pays per CPT code) and monthly counts (log_month: sessions per payer and code, no-shows) are for payer-mix analysis " +
     "and never count as income. Use check_in for 'how am I doing?' and set_goal for her income goal. For payout data, explain " +
     "the options (Stripe Express export, platform statement, bank statement) and recommend one. Therapay never stores " +
-    "per-session records: never ask for or send appointment dates, client names, initials or any client detail.",
+    "per-session records: never ask for or send appointment dates, client names, initials or any client detail. " +
+    "Sanity-check every figure before presenting it: if a number looks implausible for a solo therapist (e.g. far more " +
+    "sessions than she could see, income that jumped without explanation), say so plainly, name the likely cause (duplicate " +
+    "import, counts not logged, an outdated rate) and ask before building advice on it.",
 });
 
 const authed = withMcpAuth(handler, verifySupabaseToken, {

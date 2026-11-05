@@ -20,3 +20,10 @@
 - **Pros:** Works offline of prompt support. **Cons:** Another artifact to version.
 - **Context:** This build ships 3 MCP prompts + server instructions first.
 - **Depends on:** Watching how the MCP prompts work for user zero.
+
+## Pacing chart rendered in chat (Therapay-built UI)
+- **What:** Return an interactive visual via MCP interactive UI instead of host-drawn charts.
+- **Why:** Biggest delight jump; deferred in CEO review (E1, 2026-11-04) in favor of host-drawn visuals (U6).
+- **Pros:** Consistent look across apps. **Cons:** Support in Claude/ChatGPT for our SDK version unverified; UI to maintain.
+- **Context:** U6 already returns chart-ready data; this would render it ourselves.
+- **Depends on:** Verifying MCP interactive UI support in both apps.

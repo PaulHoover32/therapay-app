@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { groupDuplicates, likelyDuplicatePairs, type DupGroup } from "@/lib/imports";
 
 // "Am I on track?" math. Income comes from payouts ONLY (cash received). The rate card and
 // monthly counts never add to income: they only price levers (sessions needed, payer mix,
@@ -11,6 +12,8 @@ export interface PayoutLite {
   status: string;
   period_start: string | null;
   period_end: string | null;
+  import_batch_id?: string | null;
+  external_id?: string | null;
 }
 
 export interface RateLite {
@@ -180,14 +183,132 @@ interface RateRef {
   rate: number;
 }
 
+/**
+ * Sessions framed as current vs needed, never as one bare number: "needed" is her TOTAL monthly
+ * volume to hit the target, so it only means something next to what she does now.
+ */
+export interface SessionsFraming {
+  /** Recent payouts per month ÷ blended rate: roughly what she's doing now */
+  current_per_month: number;
+  /** Total sessions a month for the rest of the year to reach the target */
+  needed_per_month: number;
+  extra_per_month: number;
+  extra_pct: number | null;
+  summary: string;
+}
+
 export interface Levers {
+  /** Total payouts a month needed for the rest of the year (not on top of her current pace) */
   dollars_per_month_needed?: number;
+  current_dollars_per_month?: number;
+  extra_dollars_per_month?: number;
   blended_rate?: { rate: number; weighted: boolean; sessions: number; basis: string };
-  sessions_per_month_needed?: number;
+  sessions?: SessionsFraming;
   payer_mix?: { highest: RateRef; lowest: RateRef; what_if: string };
   no_show_cost_last_3_months?: { no_shows: number; late_cancels: number; dollars: number };
   weeks_off_affordable?: number;
 }
+
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+/** Current vs needed sessions a month at the blended rate, with the gap in sessions and percent. */
+export function sessionsFraming(pace: number, perMonth: number, rate: number, target: number): SessionsFraming {
+  const current = Math.round(pace / rate);
+  const needed = Math.ceil(perMonth / rate);
+  const extra = Math.max(0, needed - current);
+  const extraPct = current ? Math.round((extra / current) * 100) : null;
+  const now = `Recent payouts work out to about ${current} sessions a month at your $${rate} blended rate.`;
+  return {
+    current_per_month: current,
+    needed_per_month: needed,
+    extra_per_month: extra,
+    extra_pct: extraPct,
+    summary: extra
+      ? `${now} Reaching ${usd(target)} needs about ${needed} a month for the rest of the year: about ${extra} more than now${extraPct !== null ? ` (+${extraPct}%)` : ""}.`
+      : `${now} Reaching ${usd(target)} needs about ${needed} a month for the rest of the year, which your current pace already covers.`,
+  };
+}
+
+export interface CountsCheck {
+  month: string;
+  sessions: number;
+  counts_times_rates: number;
+  payouts: number;
+  difference_pct: number;
+  settled: boolean;
+}
+
+export const COUNTS_MISMATCH = 0.25;
+
+/**
+ * Compares logged counts × rate card with payouts for the same work months (last 6). Settled
+ * months are flagged either way past 25%; months still arriving only when payouts already exceed
+ * the counts (less is expected while money is in flight). A data-quality hint only: income never
+ * uses counts.
+ */
+export function countsVsPayouts(rates: RateLite[], volumes: VolumeLite[], income: Map<string, number>, settledMonth: string, today: string): CountsCheck[] {
+  const byMonth = new Map<string, { dollars: number; sessions: number; unpriced: number }>();
+  const earliest = shiftMonth(month(today), -6);
+  for (const v of volumes) {
+    const ym = month(v.month);
+    if (ym < earliest || ym > month(today) || !v.cpt_code || !v.completed) continue;
+    const g = byMonth.get(ym) ?? { dollars: 0, sessions: 0, unpriced: 0 };
+    const r = rateFor(rates, v, ym);
+    if (r === null) g.unpriced += v.completed;
+    else {
+      g.dollars += r * v.completed;
+      g.sessions += v.completed;
+    }
+    byMonth.set(ym, g);
+  }
+  const checks: CountsCheck[] = [];
+  for (const [ym, g] of [...byMonth].sort(([a], [b]) => a.localeCompare(b))) {
+    if (!g.dollars || g.unpriced) continue; // can't compare a month with sessions the rate card doesn't price
+    const paid = income.get(ym) ?? 0;
+    const diff = (paid - g.dollars) / g.dollars;
+    const settled = ym <= settledMonth;
+    if (settled ? Math.abs(diff) > COUNTS_MISMATCH : diff > COUNTS_MISMATCH) {
+      checks.push({ month: monthLabel(ym), sessions: g.sessions, counts_times_rates: round(g.dollars), payouts: paid, difference_pct: Math.round(diff * 100), settled });
+    }
+  }
+  return checks;
+}
+
+function countsNote(c: CountsCheck) {
+  const more = c.payouts > c.counts_times_rates;
+  return (
+    `${c.month}: logged counts (${c.sessions} sessions) × your rate card come to ${usd(c.counts_times_rates)}, but payouts for that month ` +
+    `${c.settled ? "are" : "already total"} ${usd(c.payouts)} (${more ? "+" : ""}${c.difference_pct}%). ` +
+    (more
+      ? "Likely causes: sessions not logged for some payers, rates set too low, or the same payouts imported twice. "
+      : "Likely causes: rates set too high, counts logged for the wrong month, or payouts missing from an import. ") +
+    "Ask the user which it is. Income still comes from payouts only."
+  );
+}
+
+/** Paid payouts that look like the same money imported twice, grouped by the two imports involved. */
+export function duplicatePayouts(payouts: PayoutLite[]): DupGroup[] {
+  const rows = payouts
+    .filter((p) => p.status === "paid")
+    .map((p) => ({ payer: p.payer, date: p.payout_date, amount: Number(p.amount), batch: p.import_batch_id ?? null, external_id: p.external_id ?? null }));
+  return groupDuplicates(likelyDuplicatePairs(rows));
+}
+
+const batchName = (b: string | null) => (b ? `import ${b}` : "payouts added without an import");
+
+function duplicateNote(g: DupGroup) {
+  return (
+    `${g.count} payouts in ${batchName(g.batches[0])} match payouts in ${batchName(g.batches[1])} (same payer and amount, ` +
+    `≤4 days apart, ${formatShort(g.from)}–${formatShort(g.to)}), ${usd(g.total)} in all. If they're the same money, every figure here ` +
+    `is inflated by up to that much. ` +
+    (g.likely_extra
+      ? `The copy in import ${g.likely_extra} has no Stripe payout IDs, so it's the likely extra: confirm with the user, then undo_import ${g.likely_extra}.`
+      : "Confirm with the user which import is the extra copy, then undo_import it.") +
+    " Nothing has been deleted."
+  );
+}
+
+const formatShort = (d: string) => utc(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
 export interface CheckInInput {
   payouts: PayoutLite[];
@@ -250,6 +371,13 @@ export function computeCheckIn({ payouts, lagFor, goal, rates, volumes, today }:
   if (target === null) notes.push(`No goal set and last year's payouts are incomplete: suggest set_goal with a dollar amount, or importing last year's payouts.`);
   if (!lastYearComplete) notes.push(`Last year (${year - 1}) doesn't have payouts in every month, so year-over-year comparisons are partial. Importing ${year - 1} payouts fixes this.`);
 
+  // Data-quality checks: flagged for the user to resolve, never applied to the figures
+  const duplicates = duplicatePayouts(payouts);
+  const countsChecks = countsVsPayouts(rates, volumes, income, settled.month, today);
+  notes.unshift(...duplicates.map(duplicateNote));
+  notes.push(...countsChecks.map(countsNote));
+  const dataChecks = { duplicate_payouts: duplicates, counts_vs_payouts: countsChecks };
+
   const base = {
     as_of: today,
     settled_through: settledMonths.length ? monthLabel(settled.month) : null,
@@ -259,10 +387,11 @@ export function computeCheckIn({ payouts, lagFor, goal, rates, volumes, today }:
     next_payouts: nextPayouts,
     target,
     target_source: targetSource,
+    data_checks: dataChecks,
   };
 
   if (!settledMonths.length) {
-    notes.unshift(`Too early in ${year} to pace: January settles around ${settled.settlesOn(`${year}-01`)}.`);
+    notes.splice(duplicates.length, 0, `Too early in ${year} to pace: January settles around ${settled.settlesOn(`${year}-01`)}.`);
     return {
       ...base,
       last_year_start: { january: get(`${year - 1}-01`), february: get(`${year - 1}-02`) },
@@ -289,13 +418,17 @@ export function computeCheckIn({ payouts, lagFor, goal, rates, volumes, today }:
   if (target !== null && monthsRemaining > 0) {
     const perMonth = round(Math.max(0, target - ytd) / monthsRemaining);
     levers.dollars_per_month_needed = perMonth;
+    if (pace !== null) {
+      levers.current_dollars_per_month = pace;
+      levers.extra_dollars_per_month = round(Math.max(0, perMonth - pace));
+    }
 
     const ym = month(today);
     const recentMonths = [1, 2, 3].map((i) => shiftMonth(ym, -i));
     const blend = blendedRate(rates, volumes, recentMonths, ym);
     if (blend) {
       levers.blended_rate = { ...blend, basis: blend.weighted ? "your last 3 months of counts" : "your rate card (no counts yet)" };
-      levers.sessions_per_month_needed = Math.ceil(perMonth / blend.rate);
+      if (pace !== null) levers.sessions = sessionsFraming(pace, perMonth, blend.rate, target);
     } else {
       notes.push("No rate card yet: set_rate_card unlocks sessions-needed and payer-mix levers.");
     }
@@ -365,7 +498,7 @@ export async function loadPayoutsForPacing(supabase: SupabaseClient, therapistId
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
       .from("payouts")
-      .select("payout_date, amount, payer, status, period_start, period_end")
+      .select("payout_date, amount, payer, status, period_start, period_end, import_batch_id, external_id")
       .eq("therapist_id", therapistId)
       .gte("payout_date", from)
       .order("payout_date")

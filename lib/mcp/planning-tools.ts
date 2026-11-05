@@ -193,10 +193,14 @@ export function registerPlanningTools(server: McpServer) {
       description:
         "Answer 'how am I doing / am I on track / will I beat last year?'. Uses payouts only (cash received): year-to-date vs the same " +
         "months last year, pace, projected year-end vs her goal (or last year's total when no goal is set), the gap, money still " +
-        "arriving, the next expected payouts, and levers to close the gap (dollars per month, sessions per month at her blended rate, " +
-        "payer-mix what-ifs, no-show cost, weeks off she can afford). Recent months whose money hasn't had time to arrive are reported " +
-        "separately, never counted as behind. Read data_notes and pass on what they suggest (import last year's payouts, set_goal, " +
-        "set_rate_card). Explain in plain language; don't dump the JSON.",
+        "arriving, the next expected payouts, and levers to close the gap (dollars per month, payer-mix what-ifs, no-show cost, weeks " +
+        "off she can afford). Sessions come as current vs needed (levers.sessions): needed_per_month is her TOTAL monthly volume, " +
+        "never extra on top, so always present it next to current_per_month and the gap (use levers.sessions.summary). Recent months " +
+        "whose money hasn't had time to arrive are reported separately, never counted as behind. data_checks flags likely duplicate " +
+        "payouts and months where counts × rate card disagree with payouts: lead with these, since they distort every figure, and " +
+        "ask the user before undoing anything. If any figure still looks implausible, say so and name the likely cause instead of " +
+        "advising on it. Pass on what data_notes suggest (import last year's payouts, set_goal, set_rate_card). Explain in plain " +
+        "language; don't dump the JSON.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true },
     },

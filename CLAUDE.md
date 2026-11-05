@@ -47,7 +47,7 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
 - **Connection status:** `verifySupabaseToken` records `(user, client_id)` in `mcp_connections` for OAuth-issued tokens
   (`lib/connections.ts`, throttled to one write per 5 min per instance).
 - Supabase's auth server supports DCR but not CIMD, so Claude users pick **Register automatically**.
-- **Privacy:** never add a free-text field to a tool that writes data; payer names are validated against reference lists.
+- **Privacy:** never add a free-text field to a tool that writes data. The one exception is payer names, which only enter through the vetted payer catalog (exact normalized match, person-name rejection, hidden from others until a second therapist submits the same name).
 - **Supabase dashboard setup (one-time):** Authentication → OAuth Server → enable, allow dynamic client registration,
   authorization path `/oauth/consent`; Site URL must be the deployed origin.
 - **Testing locally:** the tools accept a normal Supabase session token too. Log in at localhost as a test user, take

@@ -16,7 +16,11 @@ import {
   splitDuplicates,
   formatRange,
   getBatch,
+  groupDuplicates,
+  likelyDuplicatePairs,
   listBatches,
+  payoutsNear,
+  type DupRow,
   type BatchRow,
   type Grain,
 } from "@/lib/imports";
@@ -181,6 +185,52 @@ function coverageWarnings(sortedDates: string[]) {
   return warnings;
 }
 
+const INCOMING = "incoming";
+
+/**
+ * Incoming payouts that match a saved payout from another import (same payer and amount, ≤4 days
+ * apart): usually the same money from a second export of one account. A warning only: the user
+ * decides, and nothing is skipped or deleted.
+ */
+async function findLikelyDuplicates(
+  supabase: SupabaseClient,
+  therapistId: string,
+  valid: { fields: unknown; payer: string; date: string; amount: number }[],
+  excludeBatchId?: string
+) {
+  if (!valid.length) return [];
+  const dates = valid.map((v) => v.date).sort();
+  const saved = await payoutsNear(supabase, therapistId, dates[0], dates[dates.length - 1], excludeBatchId);
+  if (!saved.length) return [];
+  const incoming: DupRow[] = valid.map((v) => ({
+    payer: v.payer,
+    date: v.date,
+    amount: v.amount,
+    batch: INCOMING,
+    external_id: (v.fields as { external_id?: string | null }).external_id ?? null,
+  }));
+  const pairs = likelyDuplicatePairs([...saved, ...incoming], (a, b) => (a.batch === INCOMING) !== (b.batch === INCOMING));
+  return groupDuplicates(pairs).map((g) => {
+    const savedBatch = g.batches[0] === INCOMING ? g.batches[1] : g.batches[0];
+    const where = savedBatch ? `import ${savedBatch}` : "payouts added without an import";
+    const range = formatRange(g.from, g.to);
+    return {
+      saved_in: savedBatch,
+      count: g.count,
+      total: g.total,
+      date_range: range,
+      message:
+        `${g.count} of these payouts match payouts already saved in ${where} (same payer and amount, ≤4 days apart, ${range}, ` +
+        `$${g.total.toLocaleString("en-US")}). They're probably the same money from a second export. ` +
+        (g.likely_extra === INCOMING
+          ? "The saved copy has Stripe payout IDs and these don't: leave these rows out."
+          : g.likely_extra
+            ? `These rows have Stripe payout IDs and the saved copy doesn't: import these, then undo_import ${savedBatch}.`
+            : "Ask the user whether to leave these rows out."),
+    };
+  });
+}
+
 async function runImport<T>(
   supabase: SupabaseClient,
   therapistId: string,
@@ -214,6 +264,8 @@ async function runImport<T>(
     batch?.id
   );
 
+  const likelyDuplicates = await findLikelyDuplicates(supabase, therapistId, valid, batch?.id);
+
   let inserted = 0;
   if (!input.dry_run && valid.length) {
     if (!batch) {
@@ -244,7 +296,7 @@ async function runImport<T>(
 
   const next_step = input.dry_run
     ? valid.length
-      ? `Show the user this summary${overlaps.length ? ", including the overlap warning" : ""} and ask them to confirm. ` +
+      ? `Show the user this summary${likelyDuplicates.length ? ", leading with the likely duplicates" : overlaps.length ? ", including the overlap warning" : ""} and ask them to confirm. ` +
         `Then call again with the same rows and dry_run=false${batch ? ` and batch_id=${batch.id}` : ""}.`
       : skipped.length && !invalid.length
         ? `Nothing new to import: all ${skipped.length} payouts are already saved.`
@@ -262,6 +314,7 @@ async function runImport<T>(
     [input.dry_run ? "would_insert" : "inserted"]: input.dry_run ? valid.length : inserted,
     invalid_count: invalid.length,
     invalid_rows: invalid,
+    likely_duplicates: likelyDuplicates,
     overlap_warnings: overlaps,
     skipped_duplicates: skipped.map((s) => ({ row: s.row.row, external_id: s.external_id, reason: s.reason })),
     row_warnings: prepared.rowWarnings,
@@ -350,7 +403,7 @@ export function registerImportTools(server: McpServer) {
         "deliberately does not store: don't import them; explain that only payouts are imported. " +
         "If the data is mixed or you can't tell, or the payer is unclear, ASK the user rather than guessing. " +
         "ALWAYS call with dry_run=true first, show the user the summary (the detected grain sentence, counts, total, date range, " +
-        "any overlap warnings and invalid rows) and only call with dry_run=false after they confirm. " +
+        "likely duplicates of payouts already saved, any overlap warnings and invalid rows) and only call with dry_run=false after they confirm. " +
         `Max ${MAX_ROWS} rows per call: for more, send chunks, and pass the batch_id returned by the first saved chunk on every later chunk. ` +
         "Never put client names anywhere, including raw.",
       inputSchema: importPayoutsInput,

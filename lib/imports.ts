@@ -199,3 +199,107 @@ export async function existingStripeIds(supabase: SupabaseClient, therapistId: s
   }
   return found;
 }
+
+// ── Likely duplicates ────────────────────────────────────────────────────────────────────────
+// The same money entered twice usually arrives as two imports of one account (e.g. a Stripe
+// balance export and a hand-typed list) with the same payer and amount, dated a few days apart
+// (payout date vs arrival date). These are flagged, never blocked or deleted: identical payouts
+// can be legitimate, so the user decides.
+
+export interface DupRow {
+  payer: string;
+  date: string;
+  amount: number;
+  /** import_batch_id, or null for a payout added without an import */
+  batch: string | null;
+  external_id?: string | null;
+}
+
+export interface DupGroup {
+  batches: [string | null, string | null];
+  count: number;
+  total: number;
+  from: string;
+  to: string;
+  /** The batch whose matched rows carry no Stripe payout ID while the other's do: the likely extra copy */
+  likely_extra: string | null;
+}
+
+export const DUPLICATE_MAX_DAYS = 4;
+const dayGap = (a: string, b: string) => Math.abs(Date.parse(`${a.slice(0, 10)}T00:00:00Z`) - Date.parse(`${b.slice(0, 10)}T00:00:00Z`)) / 86_400_000;
+
+/**
+ * Pairs of rows that look like the same payout entered twice: same payer (ignoring case), same
+ * amount to the cent, at most `maxDays` apart, from different imports. Each row is used in at most
+ * one pair, closest dates first. `keep` can restrict which pairs count (e.g. new vs saved).
+ */
+export function likelyDuplicatePairs<R extends DupRow>(rows: R[], keep: (a: R, b: R) => boolean = () => true, maxDays = DUPLICATE_MAX_DAYS) {
+  const groups = new Map<string, R[]>();
+  for (const r of rows) {
+    const k = `${r.payer.trim().toLowerCase()}|${Math.round(Number(r.amount) * 100)}`;
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(r);
+  }
+  const pairs: { a: R; b: R }[] = [];
+  for (const g of groups.values()) {
+    if (g.length < 2) continue;
+    const candidates: { a: R; b: R; gap: number }[] = [];
+    for (let i = 0; i < g.length; i++) {
+      for (let j = i + 1; j < g.length; j++) {
+        const gap = dayGap(g[i].date, g[j].date);
+        if (gap <= maxDays && g[i].batch !== g[j].batch && keep(g[i], g[j])) candidates.push({ a: g[i], b: g[j], gap });
+      }
+    }
+    candidates.sort((x, y) => x.gap - y.gap);
+    const used = new Set<R>();
+    for (const c of candidates) {
+      if (used.has(c.a) || used.has(c.b)) continue;
+      used.add(c.a);
+      used.add(c.b);
+      pairs.push({ a: c.a, b: c.b });
+    }
+  }
+  return pairs;
+}
+
+/** Duplicate pairs grouped by the two imports involved. */
+export function groupDuplicates(pairs: { a: DupRow; b: DupRow }[]): DupGroup[] {
+  const groups = new Map<string, DupGroup & { stripe: [number, number] }>();
+  for (const p of pairs) {
+    const [x, y] = String(p.a.batch) <= String(p.b.batch) ? [p.a, p.b] : [p.b, p.a];
+    const k = `${x.batch}|${y.batch}`;
+    const g = groups.get(k) ?? { batches: [x.batch, y.batch] as [string | null, string | null], count: 0, total: 0, from: x.date, to: x.date, likely_extra: null, stripe: [0, 0] as [number, number] };
+    g.count += 1;
+    g.total = round(g.total + Number(x.amount));
+    for (const d of [x.date, y.date]) {
+      if (d < g.from) g.from = d;
+      if (d > g.to) g.to = d;
+    }
+    if (isStripePayoutId(x.external_id)) g.stripe[0] += 1;
+    if (isStripePayoutId(y.external_id)) g.stripe[1] += 1;
+    groups.set(k, g);
+  }
+  return [...groups.values()].map(({ stripe, ...g }) => ({
+    ...g,
+    likely_extra: stripe[0] === g.count && stripe[1] === 0 ? g.batches[1] : stripe[1] === g.count && stripe[0] === 0 ? g.batches[0] : null,
+  }));
+}
+
+/** Saved payouts within `maxDays` of a date range, excluding one batch (earlier chunks of the same import). */
+export async function payoutsNear(supabase: SupabaseClient, therapistId: string, from: string, to: string, excludeBatchId?: string) {
+  const shift = (d: string, n: number) => {
+    const x = new Date(`${d}T00:00:00Z`);
+    x.setUTCDate(x.getUTCDate() + n);
+    return x.toISOString().slice(0, 10);
+  };
+  let query = supabase
+    .from("payouts")
+    .select("payer, payout_date, amount, import_batch_id, external_id")
+    .eq("therapist_id", therapistId)
+    .gte("payout_date", shift(from, -DUPLICATE_MAX_DAYS))
+    .lte("payout_date", shift(to, DUPLICATE_MAX_DAYS))
+    .limit(10000);
+  if (excludeBatchId) query = query.or(`import_batch_id.is.null,import_batch_id.neq.${excludeBatchId}`);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({ payer: r.payer, date: r.payout_date, amount: Number(r.amount), batch: r.import_batch_id, external_id: r.external_id }) as DupRow);
+}

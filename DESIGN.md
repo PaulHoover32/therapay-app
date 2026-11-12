@@ -122,7 +122,7 @@ components:
 
 - **Display and headings: Literata** (variable, opsz + wght), weight 500, upright, sentence case. It is a serif built for long reading on screens and feels like a book on a therapist's shelf rather than a fashion masthead. Founder picked it over Young Serif by eye on 2026-11-11. Never italic for emphasis.
 - **Body and UI: Atkinson Hyperlegible Next.** It was designed by the Braille Institute for legibility, which suits tired evening eyes and reads as careful. Weights 400 / 500 / 700.
-- **Figures and code: Atkinson Hyperlegible Mono**, tabular numerals. Use it for dollar amounts, CPT codes and the connector URL (`font-mono tabular-nums`).
+- **Figures:** dollar amounts in running text use the body face with tabular numerals (`tabular-nums`), because the mono face gives the thousands comma a full cell ("$71 , 400"). **Atkinson Hyperlegible Mono** is for code-like values: the connector URL, CPT codes, and aligned figure columns (`font-mono tabular-nums`).
 - Loading: `next/font/google` in `app/layout.tsx`, exposed as `--font-display`, `--font-sans` and `--font-mono`; `h1`–`h3` get `font-display` from the base layer.
 - **Scale:** display 2.4–3.5rem, h2 1.6–2.1rem, h3 1.25rem, body 1rem (marketing lead 1.125rem), label 0.8125rem. Adjacent levels differ by size, not just weight.
 
@@ -154,7 +154,7 @@ Borders do the work. Surfaces separate by a one-step lightness change plus a 1px
 
 - Do write like a person explaining something: say what Therapay does with your payouts.
 - Do name the outcome on calls to action ("Create your account", "Connect Claude"), not "Get started" or "Learn more".
-- Do use the mono face for every dollar figure.
+- Do set every dollar figure with `tabular-nums`; use the mono face only for URLs, codes and aligned columns.
 - Do keep amber rare: about one amber element per screen region.
 - Don't use photos of clinicians, illustrations, emoji or icon tiles above headings.
 - Don't use red or green for money. Behind pace is clay, on track is sage.
@@ -176,3 +176,4 @@ Borders do the work. Surfaces separate by a one-step lightness change plus a 1px
 | 2026-11-11 | Literata as display over Young Serif | Founder chose it by eye in the HTML preview |
 | 2026-11-11 | Privacy shown as absence; chat answer as hero; lamp amber accent | Approved risks: trust you can see, honest to a chat product, distinct from teal/sage peers |
 | 2026-11-11 | Atkinson Hyperlegible Mono instead of Recursive casual | Keeps the type to two families |
+| 2026-11-11 | Prose dollar figures use body `tabular-nums`, not mono | /design-review: the mono comma read as "$71 , 400" in sentences |

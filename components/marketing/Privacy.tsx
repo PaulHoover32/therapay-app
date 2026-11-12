@@ -1,7 +1,7 @@
 // Privacy shown as absence (DESIGN.md → Overview): fields Therapay doesn't have, then the ones it keeps.
 const MISSING = ["Client name", "Session date", "Notes"]
 const KEPT = [
-  { label: "Payout", value: "$1,842.50", mono: true },
+  { label: "Payout", value: "$1,842.50", numeric: true },
   { label: "Payer", value: "Headway" },
   { label: "Month", value: "October 2026" },
 ]
@@ -36,7 +36,7 @@ export function Privacy() {
           {KEPT.map((f) => (
             <div key={f.label} className="grid items-center gap-1 sm:grid-cols-[8.5rem_1fr] sm:gap-4">
               <dt>{f.label}</dt>
-              <dd className={f.mono ? "rounded-md border bg-card px-3 py-2 font-mono tabular-nums" : "rounded-md border bg-card px-3 py-2"}>
+              <dd className={f.numeric ? "rounded-md border bg-card px-3 py-2 tabular-nums" : "rounded-md border bg-card px-3 py-2"}>
                 {f.value}
               </dd>
             </div>

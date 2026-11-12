@@ -20,8 +20,8 @@ export default function PricingPage() {
         <div className="max-w-xl space-y-6">
           <h1 className="text-[2.4rem] leading-[1.08] sm:text-5xl">One plan, priced like a co-pay.</h1>
           <p className="text-lg text-muted-foreground">
-            <span className="font-mono tabular-nums text-foreground">${MONTHLY}</span> a month, or{" "}
-            <span className="font-mono tabular-nums text-foreground">${ANNUAL}</span> a year, which is one month free.
+            <span className="tabular-nums text-foreground">${MONTHLY}</span> a month, or{" "}
+            <span className="tabular-nums text-foreground">${ANNUAL}</span> a year, which is one month free.
             Everything is included and you can cancel any time.
           </p>
           <Button asChild size="lg">

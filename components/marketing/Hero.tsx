@@ -13,11 +13,11 @@ export function Hero() {
           Therapay connects to Claude or ChatGPT. Give it your payout history from Headway, Alma, Grow or Stripe, then
           ask in plain words. Your income comes from your deposits and nothing else.
         </p>
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2">
           <Button asChild size="lg">
             <Link href="/login?mode=signup">Create your account</Link>
           </Button>
-          <Button asChild variant="link" size="lg" className="text-foreground underline">
+          <Button asChild variant="link" size="lg" className="px-0 text-foreground underline underline-offset-4 hover:text-tide">
             <Link href="#privacy">How it handles privacy</Link>
           </Button>
         </div>

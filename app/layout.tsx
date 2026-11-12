@@ -1,22 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Literata } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Type roles: DESIGN.md → Typography
+const literata = Literata({
+  variable: "--font-literata",
+  subsets: ["latin"],
+  axes: ["opsz"],
+});
+
+const atkinson = Atkinson_Hyperlegible_Next({
+  variable: "--font-atkinson",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const atkinsonMono = Atkinson_Hyperlegible_Mono({
+  variable: "--font-atkinson-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "Therapay",
-  description: "Track and project your therapy practice earnings",
+  description: "Ask Claude or ChatGPT whether your therapy practice is on track this year. Answers come from your payouts, never your clients.",
 };
 
 export default function RootLayout({
@@ -27,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${literata.variable} ${atkinson.variable} ${atkinsonMono.variable} h-full antialiased dark`}
     >
       <body className="h-full flex flex-col">
           <TooltipProvider>

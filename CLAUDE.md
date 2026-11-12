@@ -70,6 +70,12 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
 - API routes live in `app/api/[route]/route.ts`
 - Layouts in `app/layout.tsx`, pages in `app/[route]/page.tsx`
 
+## Design System
+Read `DESIGN.md` before visual or UI work: it defines the fonts, colors, spacing, and
+aesthetic direction ("After hours": moss-ink dark, lamp-amber accent, Literata + Atkinson Hyperlegible).
+Ask the user before departing from it. When reviewing or QA-ing UI, flag code that doesn't match `DESIGN.md`.
+Approved preview: `docs/designs/after-hours-preview.html`.
+
 ## Styling Rules
 - **Tailwind only** — no separate `.css` files, no CSS modules, no inline `style={{}}` objects
 - Use `cn()` from `lib/utils.ts` for conditional class merging

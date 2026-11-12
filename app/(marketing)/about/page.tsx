@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-2xl px-6 pb-24 pt-32">
-      <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl">
+    <div className="mx-auto max-w-2xl px-6 pb-24 pt-16 md:pt-24">
+      <h1 className="mb-6 text-4xl leading-tight sm:text-5xl">
         Built for therapists,
         <br />
         by people who care.
@@ -32,13 +32,13 @@ export default function AboutPage() {
       </div>
 
       <div className="mt-12 rounded-xl border border-border bg-card p-8">
-        <h2 className="mb-2 text-xl font-semibold">Ready to get started?</h2>
+        <h2 className="mb-2 text-2xl">Ready to get started?</h2>
         <p className="mb-6 text-sm text-muted-foreground">
           Try Therapay free — no credit card required.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button asChild>
-            <Link href="/login">Get Started</Link>
+            <Link href="/login?mode=signup">Create your account</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/pricing">See Pricing</Link>

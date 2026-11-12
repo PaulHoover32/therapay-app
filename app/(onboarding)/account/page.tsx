@@ -29,12 +29,12 @@ export default async function AccountPage() {
   const methods = [...new Set((user.identities ?? []).map((i) => PROVIDER_LABELS[i.provider] ?? i.provider))]
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
+    <div className="w-full max-w-2xl space-y-8">
+      <h1 className="text-4xl leading-tight">Account</h1>
 
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle className="text-base">Sign-in</CardTitle>
+          <CardTitle className="font-display text-lg font-medium">Sign-in</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -54,22 +54,22 @@ export default async function AccountPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle className="text-base">Connected AI apps</CardTitle>
+          <CardTitle className="font-display text-lg font-medium">Connected AI apps</CardTitle>
           <CardDescription>Apps you&apos;ve allowed to read and log your Therapay data.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {connections.length === 0 && (
             <p className="text-sm text-muted-foreground">
               None yet.{" "}
-              <Link href="/connect" className="text-foreground underline">
+              <Link href="/connect" className="text-tide underline underline-offset-4 hover:text-foreground">
                 Connect Claude or ChatGPT
               </Link>
             </p>
           )}
           {connections.map((c) => (
-            <div key={c.clientId} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+            <div key={c.clientId} className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">{c.name}</p>
                 <p className="text-xs text-muted-foreground">
@@ -89,14 +89,14 @@ export default async function AccountPage() {
             </div>
           ))}
           {connections.length > 0 && (
-            <Link href="/connect" className="inline-block text-sm text-muted-foreground underline hover:text-foreground">
+            <Link href="/connect" className="inline-block pt-1 text-sm text-tide underline underline-offset-4 hover:text-foreground">
               Connect another app
             </Link>
           )}
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-8">
         <form action={signOut}>
           <Button type="submit" variant="outline">
             Sign out

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Mail } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { DEFAULT_AFTER_LOGIN } from "@/lib/safe-next";
@@ -122,12 +123,10 @@ export function LoginForm({
   if (mode === "check-email") {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
-              ✉️
-            </div>
-            <CardTitle>Check your email</CardTitle>
+        <Card className="shadow-none">
+          <CardHeader>
+            <Mail aria-hidden className="mb-2 size-6 text-primary" />
+            <CardTitle className="font-display text-2xl font-medium">Check your email</CardTitle>
             <CardDescription>
               We sent a confirmation link to{" "}
               <span className="font-medium text-foreground">{email}</span>.
@@ -135,12 +134,12 @@ export function LoginForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Didn&apos;t get it? Check your spam folder or{" "}
               <button
                 type="button"
                 onClick={() => switchMode("signup")}
-                className="underline hover:text-foreground transition-colors"
+                className="text-foreground underline underline-offset-4 hover:text-tide transition-colors"
               >
                 try again
               </button>
@@ -154,13 +153,13 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle>{mode === "signin" ? "Sign in" : "Create account"}</CardTitle>
+          <CardTitle className="font-display text-2xl font-medium">{mode === "signin" ? "Sign in" : "Create your account"}</CardTitle>
           <CardDescription>
             {mode === "signin"
               ? "One Therapay account works here and in Claude or ChatGPT."
-              : "Track your therapy earnings by talking to the AI app you already use."}
+              : "Ask Claude or ChatGPT whether your year is on track. Therapay never stores client details."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -196,7 +195,6 @@ export function LoginForm({
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -209,7 +207,6 @@ export function LoginForm({
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -217,11 +214,11 @@ export function LoginForm({
                 />
               </div>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={loading} className="w-full">
               {loading
                 ? mode === "signin" ? "Signing in…" : "Creating account…"
-                : mode === "signin" ? "Sign in" : "Create account"}
+                : mode === "signin" ? "Sign in" : "Create your account"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               {mode === "signin" ? (
@@ -230,7 +227,7 @@ export function LoginForm({
                   <button
                     type="button"
                     onClick={() => switchMode("signup")}
-                    className="text-foreground underline hover:no-underline transition-all"
+                    className="text-foreground underline underline-offset-4 hover:text-tide transition-colors"
                   >
                     Create one
                   </button>
@@ -241,7 +238,7 @@ export function LoginForm({
                   <button
                     type="button"
                     onClick={() => switchMode("signin")}
-                    className="text-foreground underline hover:no-underline transition-all"
+                    className="text-foreground underline underline-offset-4 hover:text-tide transition-colors"
                   >
                     Sign in
                   </button>
@@ -253,12 +250,12 @@ export function LoginForm({
       </Card>
 
       {mode === "signin" && SHOW_TEST_ACCOUNTS && (
-        <Card>
+        <Card className="shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Test accounts</CardTitle>
             <CardDescription className="text-xs">
               All use password:{" "}
-              <code className="font-mono bg-muted px-1 py-0.5 rounded">
+              <code className="font-mono bg-muted px-1 py-0.5 rounded-sm">
                 password123
               </code>
             </CardDescription>
@@ -269,7 +266,7 @@ export function LoginForm({
                 key={a.email}
                 type="button"
                 onClick={() => fillAccount(a.email)}
-                className="w-full text-left px-3 py-2 rounded-md hover:bg-muted transition-colors"
+                className="w-full text-left px-3 py-2 rounded-md hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring transition-colors"
               >
                 <p className="text-sm font-medium">{a.name}</p>
                 <p className="text-xs text-muted-foreground">{a.description}</p>

@@ -18,10 +18,10 @@ export function CopyField({ value, label = "Copy connector URL" }: { value: stri
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-1.5 pl-3">
+    <div className="flex items-center gap-2 rounded-md border bg-card p-1.5 pl-3">
       <code className="min-w-0 flex-1 truncate font-mono text-sm select-all">{value}</code>
-      <Button type="button" size="sm" variant="secondary" onClick={copy} aria-label={label}>
-        {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+      <Button type="button" size="sm" variant="outline" onClick={copy} aria-label={label}>
+        {copied ? <Check className="size-4 text-sage" /> : <Copy className="size-4" />}
         {copied ? "Copied" : "Copy"}
       </Button>
     </div>

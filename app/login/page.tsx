@@ -13,19 +13,21 @@ export default async function Page({
   const fromConnector = next?.startsWith("/oauth/consent") ?? false
 
   return (
-    <div className="flex flex-col min-h-svh">
-      <header className="flex h-14 shrink-0 items-center border-b px-6">
-        <Link href="/" className="text-sm font-semibold">Therapay</Link>
+    <div className="flex min-h-svh flex-col">
+      <header className="flex h-16 shrink-0 items-center border-b px-6">
+        <Link href="/" className="font-display text-lg font-medium">Therapay</Link>
       </header>
-      <div className="flex flex-1 items-center justify-center p-6 md:p-10">
+      <div className="flex flex-1 items-start justify-center px-6 py-12 md:items-center md:py-16">
         <div className="w-full max-w-sm space-y-4">
           {fromConnector && (
-            <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <p className="rounded-lg bg-tide/10 px-4 py-3 text-sm">
               Sign in to connect Therapay to your AI app.
             </p>
           )}
           {error === "invalid_token" && (
-            <p className="text-sm text-destructive">That link has expired or was already used. Sign in or request a new one.</p>
+            <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm">
+              That link has expired or was already used. Sign in or request a new one.
+            </p>
           )}
           <LoginForm
             next={next ? safeNext(next) : undefined}

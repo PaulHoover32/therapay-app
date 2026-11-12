@@ -195,7 +195,6 @@ export function LoginForm({
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -208,7 +207,6 @@ export function LoginForm({
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

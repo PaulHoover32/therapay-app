@@ -60,6 +60,7 @@
 
 /* Light: "fog morning" */
 :root {
+  color-scheme: light;
   --radius: 0.375rem;
   --background: #ecefea;
   --foreground: #1b2925;
@@ -99,6 +100,7 @@
 
 /* Dark (default): "lamp-lit study" */
 .dark {
+  color-scheme: dark;
   --background: #141d1a;
   --foreground: #e7e2d4;
   --card: #1c2723;

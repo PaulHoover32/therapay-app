@@ -32,8 +32,8 @@ export function Hero() {
           <span className="font-medium text-foreground">Am I on track this year?</span>
         </p>
         <p className="mt-5">
-          You&apos;ve been paid <span className="font-mono tabular-nums">$71,400</span> for work through September. At
-          your usual autumn pace you&apos;ll finish near <span className="font-mono tabular-nums">$84,000</span>, about{" "}
+          You&apos;ve been paid <span className="font-mono tabular-nums">$71,400</span>{" "}
+          for work through September. At your usual autumn pace you&apos;ll finish near <span className="font-mono tabular-nums">$84,000</span>, about{" "}
           <span className="font-mono tabular-nums">$6,000</span> short of your{" "}
           <span className="font-mono tabular-nums">$90,000</span> goal.
         </p>

@@ -51,9 +51,9 @@ export default async function ConnectPage() {
   const connections = await listConnections(supabase)
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Connect Therapay</h1>
+    <div className="w-full max-w-3xl space-y-12">
+      <div className="max-w-xl space-y-3">
+        <h1 className="text-4xl leading-tight">Connect Therapay</h1>
         <p className="text-muted-foreground">
           Add Therapay to Claude or ChatGPT. You&apos;re already signed in, so connecting is one click to approve, with
           no key to copy.
@@ -62,55 +62,54 @@ export default async function ConnectPage() {
 
       <ConnectionStatus initial={connections} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Connector URL</CardTitle>
-          <CardDescription>The same URL works in both apps.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CopyField value={url} />
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <h2 className="text-xl">Connector URL</h2>
+          <p className="text-sm text-muted-foreground">The same URL works in both apps.</p>
+        </div>
+        <CopyField value={url} />
+      </section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {APPS.map((app) => (
-          <Card key={app.name}>
-            <CardHeader>
-              <CardTitle className="text-base">{app.name}</CardTitle>
-              <CardDescription>{app.note}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button asChild className="w-full">
-                <a href={app.href} target="_blank" rel="noopener noreferrer">
-                  Open {app.name} <ExternalLink className="size-4" />
-                </a>
-              </Button>
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-                {app.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <section className="space-y-4">
+        <h2 className="text-xl">Add it to your app</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {APPS.map((app) => (
+            <Card key={app.name} className="shadow-none">
+              <CardHeader>
+                <CardTitle className="font-display text-lg font-medium">{app.name}</CardTitle>
+                <CardDescription>{app.note}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground marker:text-foreground">
+                  {app.steps.map((step) => (
+                    <li key={step} className="pl-1">{step}</li>
+                  ))}
+                </ol>
+                <Button asChild variant="outline" className="w-full">
+                  <a href={app.href} target="_blank" rel="noopener noreferrer">
+                    Open {app.name} <ExternalLink className="size-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Then try your first prompt</CardTitle>
-          <CardDescription>
+      <section className="space-y-3 border-t pt-10">
+        <div className="space-y-1">
+          <h2 className="text-xl">Then try your first prompt</h2>
+          <p className="text-sm text-muted-foreground">
             In a new chat (in Claude, turn Therapay on from the + menu), pick the &ldquo;Set up Therapay&rdquo; prompt or
             just say:
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CopyField value={FIRST_PROMPT} label="Copy first prompt" />
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+        <CopyField value={FIRST_PROMPT} label="Copy first prompt" />
+      </section>
 
-      <p className="text-sm text-muted-foreground">
-        Never mention client names to your AI app. Therapay stores your profile and payouts only, never session or
-        client details.
+      <p className="rounded-lg bg-tide/10 px-4 py-3 text-sm">
+        Never mention client names to your AI app. Therapay stores your profile, payouts and planning numbers only, never
+        session or client details.
       </p>
     </div>
   )

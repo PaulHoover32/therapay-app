@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Therapay — After hours design preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Literata:opsz,wght@7..72,400;7..72,500&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="dark"] {
+    --ground:#141D1A; --surface:#1C2723; --raised:#23302B; --border:#2C3A35;
+    --text:#E7E2D4; --muted:#9BA69F; --accent:#E0A04A; --on-accent:#1A1407;
+    --tide:#8AB0B9; --clay:#D9846C; --sage:#93BE9C; --danger:#E07A6A;
+    --display:"Young Serif", Georgia, serif;
+  }
+  [data-theme="light"] {
+    --ground:#ECEFEA; --surface:#F7F8F4; --raised:#FFFFFF; --border:#CDD5CF;
+    --text:#1B2925; --muted:#5E6B65; --accent:#A86A1C; --on-accent:#FFFBF2;
+    --tide:#3F6F7C; --clay:#B4553D; --sage:#3E7A4C; --danger:#B3402F;
+  }
+  [data-display="literata"] { --display:"Literata", Georgia, serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--text);
+    font:400 17px/1.6 "Atkinson Hyperlegible Next", sans-serif; transition:background .25s, color .25s; }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 24px; }
+  .col { max-width:640px; }
+  h1,h2,h3,.display { font-family:var(--display); font-weight:400; letter-spacing:-0.01em; margin:0; }
+  h1 { font-size:clamp(2.4rem, 5vw, 3.6rem); line-height:1.08; }
+  h2 { font-size:clamp(1.7rem, 3vw, 2.2rem); line-height:1.15; }
+  h3 { font-size:1.3rem; line-height:1.25; }
+  p { margin:0; }
+  .muted { color:var(--muted); }
+  .mono { font-family:"Atkinson Hyperlegible Mono", monospace; font-variant-numeric:tabular-nums; }
+  a { color:var(--tide); text-underline-offset:3px; }
+  section { padding:72px 0; border-top:1px solid var(--border); }
+  .label { font-size:.8rem; color:var(--muted); letter-spacing:.02em; }
+  .stack > * + * { margin-top:16px; }
+
+  /* toolbar */
+  .bar { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--ground) 92%, transparent);
+    border-bottom:1px solid var(--border); }
+  .bar .wrap { display:flex; gap:12px; align-items:center; justify-content:space-between; height:56px; flex-wrap:wrap; }
+  .logo { font-family:var(--display); font-size:1.25rem; }
+  .seg { display:flex; gap:4px; flex-wrap:wrap; }
+  .seg button { font:inherit; font-size:.85rem; background:none; color:var(--muted); border:1px solid var(--border);
+    border-radius:4px; padding:4px 10px; cursor:pointer; }
+  .seg button[aria-pressed="true"] { color:var(--text); border-color:var(--text); }
+
+  /* controls */
+  .btn { display:inline-flex; align-items:center; gap:8px; font:500 1rem "Atkinson Hyperlegible Next", sans-serif;
+    border-radius:4px; padding:10px 18px; border:1px solid transparent; cursor:pointer; text-decoration:none; transition:background .15s, border-color .15s; }
+  .btn-primary { background:var(--accent); color:var(--on-accent); }
+  .btn-primary:hover { background:color-mix(in srgb, var(--accent) 88%, var(--text)); }
+  .btn-secondary { background:transparent; color:var(--text); border-color:var(--border); }
+  .btn-secondary:hover { border-color:var(--muted); }
+  .btn-link { padding:10px 4px; color:var(--text); text-decoration:underline; text-underline-offset:4px; background:none; }
+  .btn-danger { background:transparent; color:var(--danger); border-color:color-mix(in srgb, var(--danger) 45%, transparent); }
+  .btn:focus-visible, input:focus-visible { outline:2px solid var(--tide); outline-offset:2px; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .field label { font-size:.9rem; }
+  input { font:inherit; color:var(--text); background:var(--ground); border:1px solid var(--border); border-radius:4px; padding:9px 12px; }
+  input::placeholder { color:var(--muted); }
+  .err input { border-color:var(--danger); } .err small { color:var(--danger); }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:28px; }
+
+  /* specimen */
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:32px; }
+  .spec { padding:24px 0; border-top:1px solid var(--border); }
+  .swatches { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; }
+  .sw { border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:.85rem; }
+  .sw div:first-child { height:64px; }
+  .sw div:last-child { padding:8px 10px; }
+  .note { border-radius:8px; padding:14px 16px; font-size:.95rem; }
+
+  /* hero */
+  .hero { display:grid; grid-template-columns:1.05fr 1fr; gap:56px; align-items:start; padding:88px 0 72px; }
+  @media (max-width: 860px) { .hero { grid-template-columns:1fr; gap:40px; padding-top:56px; } }
+  .chat { border-left:1px solid var(--border); padding-left:28px; }
+  @media (max-width: 860px) { .chat { border-left:0; padding-left:0; border-top:1px solid var(--border); padding-top:28px; } }
+  .q { font-size:1.05rem; color:var(--muted); }
+  .q b { color:var(--text); font-weight:500; }
+  .a { margin-top:18px; }
+  .horizon { width:100%; height:auto; margin:22px 0 10px; display:block; }
+  .horizon .actual { stroke:var(--accent); stroke-width:2.5; fill:none; stroke-dasharray:600; stroke-dashoffset:600; animation:draw 1.2s ease-out .3s forwards; }
+  .horizon .area { fill:var(--accent); opacity:.12; }
+  .horizon .proj { stroke:var(--tide); stroke-width:2; stroke-dasharray:3 5; fill:none; }
+  .horizon .goal { stroke:var(--muted); stroke-width:1; stroke-dasharray:1 4; }
+  .horizon text { fill:var(--muted); font:12px "Atkinson Hyperlegible Next", sans-serif; }
+  @keyframes draw { to { stroke-dashoffset:0; } }
+  @media (prefers-reduced-motion: reduce) { .horizon .actual { animation:none; stroke-dashoffset:0; } }
+  .lever { margin-top:14px; padding-top:14px; border-top:1px dashed var(--border); font-size:.95rem; }
+
+  /* intake */
+  .intake { display:grid; gap:10px; max-width:520px; }
+  .row { display:grid; grid-template-columns:140px 1fr; gap:16px; align-items:center; }
+  @media (max-width: 520px) { .row { grid-template-columns:1fr; gap:4px; } }
+  .gone .box { border:1px dashed var(--border); border-radius:4px; height:40px; position:relative; }
+  .gone .box::after { content:""; position:absolute; left:8px; right:8px; top:50%; border-top:1px solid var(--muted); opacity:.6; }
+  .gone .name { color:var(--muted); text-decoration:line-through; }
+  .kept .box { border:1px solid var(--border); background:var(--surface); border-radius:4px; padding:8px 12px; }
+
+  ol.steps { padding-left:1.3em; margin:0; } ol.steps li { padding:6px 0 6px 6px; }
+  ol.steps li::marker { font-family:var(--display); color:var(--accent); }
+
+  /* screens */
+  .screens { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:32px; }
+  .frame { border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--ground); }
+  .frame header { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid var(--border); font-size:.9rem; }
+  .frame .body { padding:28px 22px 32px; }
+  .status { display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:8px; border:1px solid var(--border); transition:background .4s, border-color .4s; }
+  .dot { width:10px; height:10px; border-radius:50%; margin-top:7px; background:var(--muted); flex:none; transition:background .4s; }
+  .status.on { background:color-mix(in srgb, var(--accent) 10%, transparent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); }
+  .status.on .dot { background:var(--accent); }
+  .copy { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:4px; padding:6px 6px 6px 12px; background:var(--surface); }
+  .copy code { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
+  .copy .btn { padding:5px 12px; font-size:.85rem; }
+  footer.pv { padding:40px 0 64px; color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="wrap">
+  <span class="logo">Therapay <span class="muted" style="font-family:'Atkinson Hyperlegible Next';font-size:.85rem">· design preview</span></span>
+  <div class="seg" role="group" aria-label="Preview controls">
+    <button id="t-dark" aria-pressed="true">Dark</button>
+    <button id="t-light" aria-pressed="false">Light</button>
+    <button id="d-young" aria-pressed="true">Young Serif</button>
+    <button id="d-lit" aria-pressed="false">Literata</button>
+  </div>
+</div></div>
+
+<main class="wrap">
+
+  <!-- LANDING MOCKUP -->
+  <div class="hero">
+    <div class="stack">
+      <h1>Know if your year is on track, without opening a spreadsheet.</h1>
+      <p class="muted" style="font-size:1.15rem">Therapay connects to Claude or ChatGPT. Give it your payout history from Headway, Alma, Grow or Stripe, then ask in plain words. It answers from your deposits and nothing else.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:8px">
+        <a class="btn btn-primary" href="#">Create your account</a>
+        <a class="btn btn-link" href="#">How it handles privacy</a>
+      </div>
+      <p class="label">$20 a month. Works on every Claude plan, including Free.</p>
+    </div>
+
+    <div class="chat" aria-label="Example conversation">
+      <p class="q">You, in Claude<br><b>Am I on track this year?</b></p>
+      <div class="a">
+        <p>You've been paid <span class="mono">$71,400</span> for work through September. At your usual autumn pace you'll finish near <span class="mono">$84,000</span>, about <span class="mono">$6,000</span> short of your <span class="mono">$90,000</span> goal.</p>
+        <svg class="horizon" viewBox="0 0 600 130" role="img" aria-label="Year so far: actual income through September, projection to December, goal line">
+          <line class="goal" x1="0" y1="18" x2="600" y2="18"/>
+          <text x="600" y="12" text-anchor="end">goal $90k</text>
+          <path class="area" d="M0,110 L50,103 L100,95 L150,86 L200,77 L250,69 L300,61 L350,52 L400,42 L450,42 L450,110 Z"/>
+          <path class="actual" d="M0,110 L50,103 L100,95 L150,86 L200,77 L250,69 L300,61 L350,52 L400,42 L450,42"/>
+          <path class="proj" d="M450,42 L500,36 L550,31 L600,26"/>
+          <line x1="450" y1="38" x2="450" y2="116" stroke="currentColor" stroke-opacity=".35"/>
+          <text x="2" y="128">Jan</text><text x="300" y="128" text-anchor="middle">Jun</text>
+          <text x="450" y="128" text-anchor="middle">today</text><text x="598" y="128" text-anchor="end">Dec</text>
+        </svg>
+        <p class="lever">Two more Headway sessions a week from now to December closes most of that gap.</p>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="grid2" style="align-items:start">
+      <div class="stack col">
+        <h2>Therapay has no box for your clients.</h2>
+        <p class="muted">It can't leak what it never asks for. There is nowhere to type a client's name, a session date or a note. It keeps three things: how much you were paid, who paid you, and for which month.</p>
+      </div>
+      <div class="intake" aria-label="What Therapay stores">
+        <div class="row gone"><span class="name">Client name</span><div class="box" aria-label="Not collected"></div></div>
+        <div class="row gone"><span class="name">Session date</span><div class="box" aria-label="Not collected"></div></div>
+        <div class="row gone"><span class="name">Notes</span><div class="box" aria-label="Not collected"></div></div>
+        <div class="row kept"><span>Payout</span><div class="box mono">$1,842.50</div></div>
+        <div class="row kept"><span>Payer</span><div class="box">Headway</div></div>
+        <div class="row kept"><span>Month</span><div class="box">October 2026</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col stack">
+      <h2>Two minutes to connect</h2>
+      <ol class="steps">
+        <li>Create your Therapay account.</li>
+        <li>Add Therapay as a connector in Claude or ChatGPT and click Allow.</li>
+        <li>Hand it your payout export and ask your first question.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- SCREENS -->
+  <section>
+    <h2 style="margin-bottom:28px">Login, connect and consent</h2>
+    <div class="screens">
+      <div class="frame">
+        <header><span class="logo" style="font-size:1.05rem">Therapay</span></header>
+        <div class="body stack">
+          <h3>Sign in</h3>
+          <p class="muted" style="font-size:.95rem">One Therapay account works here and in Claude or ChatGPT.</p>
+          <div class="field"><label for="e">Email</label><input id="e" placeholder="you@example.com"></div>
+          <div class="field err"><label for="p">Password</label><input id="p" type="password" value="password1"><small>That email and password don't match.</small></div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center">Sign in</button>
+          <p class="muted" style="font-size:.9rem;text-align:center">New here? <a href="#">Create an account</a></p>
+        </div>
+      </div>
+
+      <div class="frame">
+        <header><span class="logo" style="font-size:1.05rem">Therapay</span><span class="muted">Connect · Account</span></header>
+        <div class="body stack">
+          <h3>Connect Therapay</h3>
+          <div class="status" id="status"><span class="dot"></span><div><p id="st-t">Waiting for Claude or ChatGPT…</p><p class="muted" style="font-size:.9rem" id="st-b">This updates on its own once you click Allow.</p></div></div>
+          <div class="field"><span class="label">Connector URL</span>
+            <div class="copy"><code class="mono">https://therapay.app/api/mcp</code><button class="btn btn-secondary">Copy</button></div></div>
+          <button class="btn btn-secondary" id="flip" style="font-size:.85rem;padding:6px 12px">Preview: toggle connected</button>
+        </div>
+      </div>
+
+      <div class="frame">
+        <header><span class="logo" style="font-size:1.05rem">Therapay</span></header>
+        <div class="body stack">
+          <h3>Connect Claude to Therapay?</h3>
+          <p class="muted" style="font-size:.95rem">Signed in as sarah@therapay.dev</p>
+          <p>Claude will be able to read and update your practice profile, import and read your payouts, and answer questions from them.</p>
+          <p class="muted" style="font-size:.95rem">It can't see client names. Therapay doesn't have them.</p>
+          <div style="display:flex;gap:8px"><button class="btn btn-secondary" style="flex:1;justify-content:center">Cancel</button><button class="btn btn-primary" style="flex:1;justify-content:center">Allow</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SYSTEM -->
+  <section>
+    <h2 style="margin-bottom:24px">Type</h2>
+    <div class="grid2">
+      <div class="spec"><p class="label">Display · Young Serif 400</p><p style="font-family:'Young Serif';font-size:2.2rem;line-height:1.15">You're about $6,000 short. Here's what closes it.</p></div>
+      <div class="spec"><p class="label">Display alternative · Literata 500</p><p style="font-family:'Literata';font-weight:500;font-size:2.2rem;line-height:1.15">You're about $6,000 short. Here's what closes it.</p></div>
+      <div class="spec"><p class="label">Body & UI · Atkinson Hyperlegible Next 400 / 500 / 700</p><p>Payouts from Grow arrive about three weeks after the session month ends, so September isn't fully settled yet. <b>Therapay waits for it</b> before calling the month.</p></div>
+      <div class="spec"><p class="label">Figures · Atkinson Hyperlegible Mono, tabular</p>
+        <p class="mono">Headway&nbsp;&nbsp;&nbsp;90837&nbsp;&nbsp;&nbsp;$148.00<br>Alma&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;90834&nbsp;&nbsp;&nbsp;$121.50<br>Private&nbsp;&nbsp;&nbsp;90837&nbsp;&nbsp;&nbsp;$180.00</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 style="margin-bottom:24px">Color</h2>
+    <div class="swatches" id="sw"></div>
+    <div class="grid2" style="margin-top:32px">
+      <div class="stack">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary">Create your account</button>
+          <button class="btn btn-secondary">Disconnect</button>
+          <button class="btn btn-link">See pricing</button>
+          <button class="btn btn-danger">Delete account</button>
+        </div>
+        <div class="field"><label for="n">Full name</label><input id="n" placeholder="Dr. Jane Smith"></div>
+      </div>
+      <div class="stack">
+        <div class="note" style="background:color-mix(in srgb,var(--sage) 12%,transparent)"><b style="color:var(--sage)">On track.</b> You're ahead of last year by <span class="mono">$3,100</span>.</div>
+        <div class="note" style="background:color-mix(in srgb,var(--clay) 12%,transparent)"><b style="color:var(--clay)">Behind pace.</b> About <span class="mono">$6,000</span> short at the current rate.</div>
+        <div class="note" style="background:color-mix(in srgb,var(--tide) 12%,transparent)"><b style="color:var(--tide)">Not settled yet.</b> October payouts are still arriving.</div>
+        <div class="note" style="background:color-mix(in srgb,var(--danger) 12%,transparent)"><b style="color:var(--danger)">Couldn't delete your account.</b> Try again or contact support.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="pv">Preview only. Figures are illustrative. Toggle Dark/Light and the two display faces above.</footer>
+</main>
+
+<script>
+  const root = document.documentElement;
+  const sw = [["Ground","--ground"],["Surface","--surface"],["Border","--border"],["Text","--text"],["Muted","--muted"],["Lamp amber","--accent"],["Tide","--tide"],["Clay · behind","--clay"],["Sage · on track","--sage"],["Danger","--danger"]];
+  function paint(){ const cs=getComputedStyle(root); document.getElementById("sw").innerHTML = sw.map(([n,v])=>{const c=cs.getPropertyValue(v).trim();return `<div class="sw"><div style="background:${c}"></div><div>${n}<br><span class="mono muted">${c}</span></div></div>`}).join(""); }
+  function press(on, off){ on.setAttribute("aria-pressed","true"); off.setAttribute("aria-pressed","false"); }
+  const td=document.getElementById("t-dark"), tl=document.getElementById("t-light"), dy=document.getElementById("d-young"), dl=document.getElementById("d-lit");
+  td.onclick=()=>{root.dataset.theme="dark";press(td,tl);paint();};
+  tl.onclick=()=>{root.dataset.theme="light";press(tl,td);paint();};
+  dy.onclick=()=>{delete root.dataset.display;press(dy,dl);};
+  dl.onclick=()=>{root.dataset.display="literata";press(dl,dy);};
+  document.getElementById("flip").onclick=()=>{const s=document.getElementById("status");const on=s.classList.toggle("on");
+    document.getElementById("st-t").textContent=on?"Connected to Claude":"Waiting for Claude or ChatGPT…";
+    document.getElementById("st-b").textContent=on?"You're all set. Go back to your chat and say “Set up Therapay”.":"This updates on its own once you click Allow.";};
+  paint();
+</script>
+</body>
+</html>

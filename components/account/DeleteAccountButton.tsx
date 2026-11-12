@@ -21,21 +21,24 @@ export function DeleteAccountButton({ action }: { action: () => Promise<{ error:
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete account</Button>
+        <Button variant="outline" className="border-destructive/45 text-destructive hover:bg-destructive/10 hover:text-destructive">
+          Delete account
+        </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete your Therapay account?</AlertDialogTitle>
+          <AlertDialogTitle className="font-display text-xl font-medium">Delete your Therapay account?</AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes your profile, sessions, payouts, goals and imports, and disconnects Claude and
-            ChatGPT. It can&apos;t be undone.
+            This permanently deletes your profile, payouts, imports, rate card, monthly counts and goals, and disconnects
+            Claude and ChatGPT. It can&apos;t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
-            variant="destructive"
+            variant="outline"
+            className="border-destructive/45 text-destructive hover:bg-destructive/10 hover:text-destructive"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {

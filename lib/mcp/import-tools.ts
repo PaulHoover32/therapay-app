@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/database.types";
-import { DATE, dayAfter, fail, isJunkPayer, resolveName, text, therapistFor, type Ctx } from "@/lib/mcp/helpers";
+import { DATE, dayAfter, fail, text, therapistFor, type Ctx } from "@/lib/mcp/helpers";
+import { isJunkPayer, ownPayerNames, resolvePayer } from "@/lib/payers";
 import { getPlatforms, insertPayouts, listPayouts, PAYOUT_STATUSES, type PayoutFields, type PayoutStatus } from "@/lib/payouts";
 import { getValidPayerNames } from "@/lib/therapists";
 import {
@@ -132,7 +133,7 @@ function hasCpt(row: Record<string, unknown>) {
 const loose = z.union([z.string(), z.number()]).optional();
 
 const payoutRow = z.looseObject({
-  payer: z.string().optional().describe("Platform or payer that sent the money, e.g. Grow Therapy, Headway, Alma, Aetna"),
+  payer: z.string().optional().describe("Platform or payer that sent the money, e.g. Grow Therapy, Headway, Alma, Aetna. May be one not on the known list; never a client's name"),
   payout_date: z.string().optional().describe("Date the deposit was paid / arrives (Stripe: arrival date), YYYY-MM-DD"),
   amount: loose.describe("Net amount received in dollars"),
   currency: z.string().optional().describe("ISO currency, default USD"),
@@ -163,6 +164,7 @@ interface Prepared<T> {
   valid: { row: number; fields: T; payer: string; date: string; amount: number }[];
   invalid: RowError[];
   rowWarnings: { row: number; warning: string }[];
+  newPayers: { name: string; rows: number; similar_to: string[] }[];
   detected: string;
 }
 
@@ -296,7 +298,7 @@ async function runImport<T>(
 
   const next_step = input.dry_run
     ? valid.length
-      ? `Show the user this summary${likelyDuplicates.length ? ", leading with the likely duplicates" : overlaps.length ? ", including the overlap warning" : ""} and ask them to confirm. ` +
+      ? `Show the user this summary${likelyDuplicates.length ? ", leading with the likely duplicates" : overlaps.length ? ", including the overlap warning" : ""}${prepared.newPayers.length ? ". Point out the new_payers (any similar_to may be a typo, and none may be a client's name)" : ""} and ask them to confirm. ` +
         `Then call again with the same rows and dry_run=false${batch ? ` and batch_id=${batch.id}` : ""}.`
       : skipped.length && !invalid.length
         ? `Nothing new to import: all ${skipped.length} payouts are already saved.`
@@ -317,6 +319,7 @@ async function runImport<T>(
     likely_duplicates: likelyDuplicates,
     overlap_warnings: overlaps,
     skipped_duplicates: skipped.map((s) => ({ row: s.row.row, external_id: s.external_id, reason: s.reason })),
+    new_payers: prepared.newPayers,
     row_warnings: prepared.rowWarnings,
     coverage_warnings: coverageWarnings(dates),
     date_range: dates.length ? { from: dates[0], to: dates[dates.length - 1], label: formatRange(dates[0], dates[dates.length - 1]) } : null,
@@ -326,20 +329,22 @@ async function runImport<T>(
   });
 }
 
-async function preparePayouts(supabase: SupabaseClient, rows: z.infer<typeof payoutRow>[]): Promise<Prepared<PayoutFields>> {
-  const [payers, platforms] = await Promise.all([getValidPayerNames(supabase), getPlatforms(supabase)]);
-  const names = [...platforms.map((p) => p.name), ...payers.filter((p) => !isJunkPayer(p))];
+async function preparePayouts(supabase: SupabaseClient, therapistId: string, rows: z.infer<typeof payoutRow>[]): Promise<Prepared<PayoutFields>> {
+  const [payers, platforms, own] = await Promise.all([getValidPayerNames(supabase), getPlatforms(supabase), ownPayerNames(supabase, therapistId)]);
+  const names = [...new Set([...platforms.map((p) => p.name), ...payers.filter((p) => !isJunkPayer(p)), ...own])];
   const known = new Set(names.map((n) => n.toLowerCase()));
   const valid: Prepared<PayoutFields>["valid"] = [];
   const invalid: RowError[] = [];
   const rowWarnings: Prepared<PayoutFields>["rowWarnings"] = [];
+  const newPayers = new Map<string, Prepared<PayoutFields>["newPayers"][number]>();
 
   rows.forEach((r, i) => {
     const row = i + 1;
     const errors: string[] = [];
     if (hasCpt(r)) errors.push("Has a CPT code, so it looks like a per-session record, not a payout. Therapay only imports payouts.");
-    const payer = resolveName(r.payer, names);
-    if (!payer) errors.push(`payer "${r.payer ?? ""}" is not a known platform or payer (${names.join(", ")})`);
+    const resolved = resolvePayer(r.payer, names);
+    if ("error" in resolved) errors.push(resolved.error);
+    const payer = "error" in resolved ? null : resolved.name;
     const date = parseDate(r.payout_date);
     if (!date) errors.push(`payout_date "${r.payout_date ?? ""}" is not a valid date`);
     const amount = parseAmount(r.amount);
@@ -358,7 +363,12 @@ async function preparePayouts(supabase: SupabaseClient, rows: z.infer<typeof pay
     if (period_start && period_end && period_end < period_start) errors.push("period_end is before period_start");
 
     if (errors.length) return invalid.push({ row, errors });
-    const { raw, dropped } = sanitizeRaw(r.raw, known);
+    if (!("error" in resolved) && resolved.isNew) {
+      const entry = newPayers.get(resolved.name) ?? { name: resolved.name, rows: 0, similar_to: resolved.similar };
+      entry.rows += 1;
+      newPayers.set(resolved.name, entry);
+    }
+    const { raw, dropped } = sanitizeRaw(r.raw, new Set([...known, payer!.toLowerCase(), (r.payer ?? "").trim().toLowerCase()]));
     if (dropped.length) rowWarnings.push({ row, warning: `Not stored from raw (could contain names): ${dropped.join(", ")}` });
     if (payer === "Stripe") rowWarnings.push({ row, warning: "Payer recorded as Stripe. If these are Grow Therapy payouts (paid via Stripe Express), use payer \"Grow Therapy\" so they're tracked under Grow." });
     if (currency !== "USD") rowWarnings.push({ row, warning: `Currency ${currency}: totals treat amounts as USD.` });
@@ -380,6 +390,7 @@ async function preparePayouts(supabase: SupabaseClient, rows: z.infer<typeof pay
     valid,
     invalid,
     rowWarnings,
+    newPayers: [...newPayers.values()],
     detected: n
       ? `These look like ${n} ${stripe ? "Stripe " : ""}payout${n === 1 ? "" : "s"} from ${payerList.join(", ")} (lump-sum deposits, ${formatRange(dates[0], dates[n - 1])}).`
       : "No valid payout rows.",
@@ -402,6 +413,7 @@ export function registerImportTools(server: McpServer) {
         "a weekly cadence. If rows have CPT codes, client details or one row per appointment, they are per-session records, which Therapay " +
         "deliberately does not store: don't import them; explain that only payouts are imported. " +
         "If the data is mixed or you can't tell, or the payer is unclear, ASK the user rather than guessing. " +
+        "A payer not on the known list is allowed: it comes back under new_payers in the dry run so the user can confirm the spelling. " +
         "ALWAYS call with dry_run=true first, show the user the summary (the detected grain sentence, counts, total, date range, " +
         "likely duplicates of payouts already saved, any overlap warnings and invalid rows) and only call with dry_run=false after they confirm. " +
         `Max ${MAX_ROWS} rows per call: for more, send chunks, and pass the batch_id returned by the first saved chunk on every later chunk. ` +
@@ -412,7 +424,7 @@ export function registerImportTools(server: McpServer) {
     async (input, ctx: Ctx) => {
       try {
         const { supabase, therapist } = await therapistFor(ctx);
-        const prepared = await preparePayouts(supabase, input.payouts);
+        const prepared = await preparePayouts(supabase, therapist.id, input.payouts);
         return await runImport(supabase, therapist.id, input, input.payouts.length, prepared, async (rows, batchId) => {
           const { data, error } = await insertPayouts(
             supabase,

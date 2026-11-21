@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RateLite, VolumeLite } from "@/lib/pacing";
+import { currentRates, type RateLite, type VolumeLite } from "@/lib/pacing";
 
-// Planning inputs the therapist enters: her rate card (payer × CPT code), monthly counts per
-// payer × CPT code, and her income goal. Rates and counts are for payer-mix analysis only and
+// Planning inputs the therapist enters: their rate card (payer × CPT code), monthly counts per
+// payer × CPT code, and their income goal. Rates and counts are for payer-mix analysis only and
 // are never added to income. The goal is numbers only: no free text is ever stored.
 
 export const CPT_CODES = ["90837", "90834", "90791", "90847", "90853"] as const;
@@ -46,6 +46,41 @@ export async function upsertRates(supabase: SupabaseClient, therapistId: string,
     .upsert(rates.map((r) => ({ ...r, therapist_id: therapistId })), { onConflict: "therapist_id,payer,platform,cpt_code,effective_from" })
     .select(RATE_COLUMNS)
     .returns<RateLite[]>();
+}
+
+export interface RateCardEntry {
+  cpt_code: string;
+  label: string;
+  /** Rate in force this month; null when the only rates on file start later */
+  rate: number | null;
+  since: string | null;
+  previous: { rate: number; from: string }[];
+  upcoming: { rate: number; from: string }[];
+}
+
+/** Every rate on file, grouped into one card per payer + platform, with its history. */
+export function rateCards(rates: RateLite[], ym: string) {
+  const inForce = new Set(currentRates(rates, ym));
+  const cards = new Map<string, { payer: string; platform: string | null; rates: Map<string, RateCardEntry> }>();
+  const sorted = [...rates].sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+  for (const r of sorted) {
+    const key = `${r.payer}|${r.platform}`;
+    if (!cards.has(key)) cards.set(key, { payer: r.payer, platform: r.platform || null, rates: new Map() });
+    const codes = cards.get(key)!.rates;
+    if (!codes.has(r.cpt_code)) {
+      codes.set(r.cpt_code, { cpt_code: r.cpt_code, label: CPT_LABELS[r.cpt_code as CptCode] ?? r.cpt_code, rate: null, since: null, previous: [], upcoming: [] });
+    }
+    const entry = codes.get(r.cpt_code)!;
+    const point = { rate: Number(r.rate), from: r.effective_from.slice(0, 7) };
+    if (inForce.has(r)) {
+      entry.rate = point.rate;
+      entry.since = point.from;
+    } else if (point.from > ym) entry.upcoming.push(point);
+    else entry.previous.push(point);
+  }
+  return [...cards.values()]
+    .sort((a, b) => a.payer.localeCompare(b.payer) || (a.platform ?? "").localeCompare(b.platform ?? ""))
+    .map((c) => ({ ...c, rates: [...c.rates.values()].sort((a, b) => a.cpt_code.localeCompare(b.cpt_code)) }));
 }
 
 export async function getRates(supabase: SupabaseClient, therapistId: string) {
@@ -124,7 +159,7 @@ export function resolveGoalTarget(
   return { target: Math.round(lastYear.total * (1 + input.growth_pct_over_last_year! / 100) * 100) / 100 };
 }
 
-/** Goal columns derived from her rate card, or carried over from the previous goal, else 0 ("not set"). */
+/** Goal columns derived from their rate card, or carried over from the previous goal, else 0 ("not set"). */
 export function goalNumbers(target: number, blended: number | null, avgSessionMinutes: number, previous: Omit<GoalNumbers, "annual_income_target"> | null): GoalNumbers {
   if (blended) {
     const sessionsPerWeek = target / blended / 48;

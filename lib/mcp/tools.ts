@@ -4,6 +4,7 @@ import { getValidLicenseCodes, updatePracticeInfo, US_STATES } from "@/lib/thera
 import { fail, text, therapistFor } from "@/lib/mcp/helpers";
 import { registerImportTools } from "@/lib/mcp/import-tools";
 import { registerPlanningTools } from "@/lib/mcp/planning-tools";
+import { registerCleanupTools } from "@/lib/mcp/cleanup-tools";
 import { registerPrompts } from "@/lib/mcp/prompts";
 
 // No client data is stored: Therapay keeps no per-session records, and no tool that writes data
@@ -23,9 +24,9 @@ export function registerTherapayTools(server: McpServer) {
   server.registerTool(
     "setup_profile",
     {
-      title: "Set up profile",
+      title: "Set up or update profile",
       description:
-        "Create or update the therapist's Therapay profile: their own name, license, years licensed, licensed states, " +
+        "Set up or change the therapist's Therapay profile: their own name, license, years licensed, licensed states, " +
         "specialties, practice model and typical session length. Only pass the fields being set or changed. " +
         "Use this during onboarding or whenever the provider says something about their practice changed.",
       inputSchema: setupProfileInput,
@@ -56,7 +57,32 @@ export function registerTherapayTools(server: McpServer) {
     }
   );
 
+  server.registerTool(
+    "get_profile",
+    {
+      title: "View profile",
+      description:
+        "Show the therapist's saved Therapay profile: name, license, years licensed, states, specialties, practice model and " +
+        "typical session length, plus which fields are still empty. Use setup_profile to change anything.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
+    },
+    async (_input, ctx) => {
+      try {
+        const { therapist } = await therapistFor(ctx);
+        const profile = Object.fromEntries(Object.entries(therapist).filter(([key]) => key !== "id"));
+        const missing = Object.entries(profile)
+          .filter(([, v]) => v === null || v === "" || (Array.isArray(v) && !v.length))
+          .map(([k]) => k);
+        return text({ profile, missing });
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
   registerImportTools(server);
   registerPlanningTools(server);
+  registerCleanupTools(server);
   registerPrompts(server);
 }

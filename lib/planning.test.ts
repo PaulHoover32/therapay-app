@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { goalNumbers, resolveGoalTarget } from "@/lib/planning";
+import { goalNumbers, rateCards, resolveGoalTarget } from "@/lib/planning";
+import { resolvePayer } from "@/lib/payers";
 import { splitDuplicates } from "@/lib/imports";
 
 describe("resolveGoalTarget", () => {
@@ -41,5 +42,43 @@ describe("splitDuplicates", () => {
       [2, "already_imported"],
       [3, "repeated_in_file"],
     ]);
+  });
+});
+
+describe("rateCards", () => {
+  const rate = (payer: string, cpt_code: string, value: number, effective_from: string, platform = "") => ({ payer, platform, cpt_code, rate: value, effective_from });
+
+  it("groups by payer and platform with current, previous and upcoming rates", () => {
+    const cards = rateCards(
+      [rate("Aetna", "90837", 120, "2026-01-01"), rate("Aetna", "90837", 130, "2026-06-01"), rate("Aetna", "90837", 140, "2027-01-01"), rate("Aetna", "90834", 95, "2026-01-01", "Headway")],
+      "2026-11"
+    );
+    expect(cards.map((c) => c.platform)).toEqual([null, "Headway"]);
+    expect(cards[0].rates[0]).toMatchObject({ rate: 130, since: "2026-06", previous: [{ rate: 120, from: "2026-01" }], upcoming: [{ rate: 140, from: "2027-01" }] });
+  });
+  it("shows a rate that hasn't started yet as upcoming, with no current rate", () => {
+    const [card] = rateCards([rate("Cigna", "90837", 110, "2027-02-01")], "2026-11");
+    expect(card.rates[0]).toMatchObject({ rate: null, since: null, upcoming: [{ rate: 110, from: "2027-02" }] });
+  });
+});
+
+describe("resolvePayer", () => {
+  const names = ["Aetna", "Grow Therapy", "United Healthcare", "Cigna / Evernorth"];
+
+  it("matches known names, including a one-word short form", () => {
+    expect(resolvePayer("aetna", names)).toEqual({ name: "Aetna", isNew: false, similar: [] });
+    expect(resolvePayer("Grow", names)).toMatchObject({ name: "Grow Therapy", isNew: false });
+  });
+  it("adds a new payer instead of folding it into one that starts the same", () => {
+    expect(resolvePayer("United Behavioral", names)).toEqual({ name: "United Behavioral", isNew: true, similar: ["United Healthcare"] });
+    expect(resolvePayer("  Kaiser   Permanente ", names)).toEqual({ name: "Kaiser Permanente", isNew: true, similar: [] });
+  });
+  it("flags a likely typo", () => {
+    expect(resolvePayer("Aetnaa", names)).toMatchObject({ isNew: true, similar: ["Aetna"] });
+  });
+  it("rejects empty, overlong, symbol-only and placeholder names", () => {
+    for (const bad of ["", "   ", "x".repeat(61), "12345", "<script>", "Payer_12"]) {
+      expect(resolvePayer(bad, names)).toHaveProperty("error");
+    }
   });
 });

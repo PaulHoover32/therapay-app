@@ -102,7 +102,7 @@ export function settledThrough(payouts: PayoutLite[], lagFor: LagFor, today: str
 /**
  * The rate in force for a payer/platform/code in a month: the latest effective_from on or before
  * it. Months before the first rate on file use that first rate (a rate card entered today
- * describes what she's been paid, unless a later row records a change).
+ * describes what they've been paid, unless a later row records a change).
  */
 export function rateFor(rates: RateLite[], v: { payer: string; platform: string; cpt_code: string }, ym: string) {
   const forKey = rates
@@ -184,11 +184,11 @@ interface RateRef {
 }
 
 /**
- * Sessions framed as current vs needed, never as one bare number: "needed" is her TOTAL monthly
- * volume to hit the target, so it only means something next to what she does now.
+ * Sessions framed as current vs needed, never as one bare number: "needed" is their TOTAL monthly
+ * volume to hit the target, so it only means something next to what they do now.
  */
 export interface SessionsFraming {
-  /** Recent payouts per month ÷ blended rate: roughly what she's doing now */
+  /** Recent payouts per month ÷ blended rate: roughly what they're doing now */
   current_per_month: number;
   /** Total sessions a month for the rest of the year to reach the target */
   needed_per_month: number;
@@ -198,7 +198,7 @@ export interface SessionsFraming {
 }
 
 export interface Levers {
-  /** Total payouts a month needed for the rest of the year (not on top of her current pace) */
+  /** Total payouts a month needed for the rest of the year (not on top of their current pace) */
   dollars_per_month_needed?: number;
   current_dollars_per_month?: number;
   extra_dollars_per_month?: number;
@@ -349,7 +349,7 @@ export function computeCheckIn({ payouts, lagFor, goal, rates, volumes, today }:
   const inProgress = {
     months: inProgressMonths.map(monthLabel),
     received_so_far: receivedSoFar,
-    // Expected at her recent pace (current month prorated by day), minus what has already arrived
+    // Expected at their recent pace (current month prorated by day), minus what has already arrived
     still_arriving_estimate:
       pace === null
         ? null

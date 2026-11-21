@@ -25,13 +25,13 @@ functionality to the web app — build it as MCP tools/prompts.
 Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/mcp` (Streamable HTTP, `mcp-handler` v2).
 - `app/api/mcp/route.ts` — handler wrapped in `withMcpAuth`; every request needs a Supabase access token
 - `lib/mcp/auth.ts` — verifies the token (`auth.getClaims`) and builds a Supabase client *as that user* (RLS applies; no service-role key)
-- `lib/mcp/tools.ts` — `setup_profile` (shared write logic in `lib/therapists.ts`)
+- `lib/mcp/tools.ts` — `get_profile`, `setup_profile` (view and update; shared write logic in `lib/therapists.ts`)
 - `lib/mcp/import-tools.ts` — payout history: `import_payouts` (dry run by default, per-row errors, ≤500 rows/call, chunks share
   a `batch_id`; rows that look like per-session records are rejected), `undo_import`, `list_imports`, `list_payouts`
 - **Payouts:** every row has `source` and optional `import_batch_id` (deleting an `import_batches` row cascades = undo). Overlap
   with existing payouts of the same payer/date range is a warning; Stripe `po_` IDs are unique per therapist and repeats are
   skipped in both dry run and real import (`lib/imports.ts` `splitDuplicates`).
-- `lib/mcp/planning-tools.ts` — `check_in` (am I on track?), `set_rate_card` (payer × CPT code, with history), `log_month`
+- `lib/mcp/planning-tools.ts` — `check_in` (am I on track?), `set_rate_card` (payer × CPT code, with history), `list_rate_cards`, `log_month`
   (counts per payer × CPT + no-shows, upsert), `set_goal` (dollar target or growth %, numbers only, `lib/planning.ts`)
 - `lib/pacing.ts` — the check-in math, **payouts only**: monthly series by work month (payout date − lag per paying entity),
   settled cutoff (month end + max lag), seasonal/run-rate projection, levers priced from the rate card. Pure functions,
@@ -47,7 +47,7 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
 - **Connection status:** `verifySupabaseToken` records `(user, client_id)` in `mcp_connections` for OAuth-issued tokens
   (`lib/connections.ts`, throttled to one write per 5 min per instance).
 - Supabase's auth server supports DCR but not CIMD, so Claude users pick **Register automatically**.
-- **Privacy:** never add a free-text field to a tool that writes data. The one exception is payer names, which only enter through the vetted payer catalog (exact normalized match, person-name rejection, hidden from others until a second therapist submits the same name).
+- **Privacy:** never add a free-text field to a tool that writes data. The one exception is payer names: for now a therapist can add a payer not on the known list (`lib/payers.ts`: character and length checks, user confirms the spelling, stored only on their own rows). The vetted shared catalog (U3 in `docs/designs/next-enhancements.md`) is the planned tightening.
 - **Supabase dashboard setup (one-time):** Authentication → OAuth Server → enable, allow dynamic client registration,
   authorization path `/oauth/consent`; Site URL must be the deployed origin.
 - **Testing locally:** the tools accept a normal Supabase session token too. Log in at localhost as a test user, take

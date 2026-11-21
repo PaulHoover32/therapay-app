@@ -33,6 +33,8 @@ Therapay is usable from inside Claude or ChatGPT through an MCP server at `/api/
   skipped in both dry run and real import (`lib/imports.ts` `splitDuplicates`).
 - `lib/mcp/planning-tools.ts` — `check_in` (am I on track?), `set_rate_card` (payer × CPT code, with history), `list_rate_cards`, `log_month`
   (counts per payer × CPT + no-shows, upsert), `set_goal` (dollar target or growth %, numbers only, `lib/planning.ts`)
+- `lib/mcp/cleanup-tools.ts` — fixing mistakes, preview first, `confirm=true` to write: `rename_payer` (payouts, rates, counts and
+  stored payout `raw`; stops on conflicts), `delete_rates`, `delete_month_counts`
 - `lib/pacing.ts` — the check-in math, **payouts only**: monthly series by work month (payout date − lag per paying entity),
   settled cutoff (month end + max lag), seasonal/run-rate projection, levers priced from the rate card. Pure functions,
   tested in `lib/pacing.test.ts` (`npm test`, Vitest).

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/lib/database.types";
 
 // Payer name matching. Known names come from the reference tables; a therapist can also add their
 // own, which live only on their own rows (RLS), so nobody else ever sees them. Loose for now: the
@@ -22,6 +23,13 @@ export function resolveName(input: string | undefined, names: string[]) {
   if (n.includes(" ")) return null;
   const byWord = names.filter((name) => norm(name).split(" ")[0] === n);
   return byWord.length === 1 ? byWord[0] : null;
+}
+
+/** Exact (case- and punctuation-insensitive) match only, for tools that change saved data. */
+export function exactName(input: string | undefined, names: string[]) {
+  if (!input?.trim()) return null;
+  const n = norm(input);
+  return names.find((name) => name === input.trim()) ?? names.find((name) => norm(name) === n) ?? null;
 }
 
 function editDistance(a: string, b: string) {
@@ -86,4 +94,56 @@ export async function ownPayerNames(supabase: SupabaseClient, therapistId: strin
     }
   }
   return [...names];
+}
+
+/** A row with a payer + platform, plus the rest of its unique key (code, month…). */
+export interface RenameRow {
+  id: string;
+  payer: string;
+  platform: string;
+  key: string;
+}
+
+/**
+ * What renaming a payer or platform does to rows with a unique key. A row whose payer and platform
+ * end up equal becomes direct (no platform). Two rows landing on one key is a conflict: nothing
+ * says which value is right, so the caller must stop and ask.
+ */
+export function planRename(rows: RenameRow[], from: string, to: string) {
+  const fullKey = (payer: string, platform: string, key: string) => JSON.stringify([payer, platform, key]);
+  const taken = new Set(rows.filter((r) => r.payer !== from && r.platform !== from).map((r) => fullKey(r.payer, r.platform, r.key)));
+  const groups = new Map<string, { payer: string; platform: string; ids: string[] }>();
+  const conflicts = new Set<string>();
+  let moved = 0;
+  for (const r of rows) {
+    if (r.payer !== from && r.platform !== from) continue;
+    moved += 1;
+    const payer = r.payer === from ? to : r.payer;
+    const renamed = r.platform === from ? to : r.platform;
+    const platform = renamed === payer ? "" : renamed;
+    const target = fullKey(payer, platform, r.key);
+    if (taken.has(target)) conflicts.add(r.key);
+    taken.add(target);
+    const group = `${payer}|${platform}`;
+    if (!groups.has(group)) groups.set(group, { payer, platform, ids: [] });
+    groups.get(group)!.ids.push(r.id);
+  }
+  return { moved, updates: [...groups.values()], conflicts: [...conflicts] };
+}
+
+/** Raw payout fields with the old name replaced, or null when the old name isn't in them. */
+export function scrubRaw(raw: Json | null, from: string, to: string): Json | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const old = from.trim().toLowerCase();
+  let changed = false;
+  const next = Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => {
+      if (typeof value === "string" && value.trim().toLowerCase() === old) {
+        changed = true;
+        return [key, to];
+      }
+      return [key, value ?? null];
+    })
+  );
+  return changed ? next : null;
 }

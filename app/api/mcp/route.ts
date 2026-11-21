@@ -17,7 +17,7 @@ const handler = createMcpHandler(registerTherapayTools, {
     "sessions than they could see, income that jumped without explanation), say so plainly, name the likely cause (duplicate " +
     "import, counts not logged, an outdated rate) and ask before building advice on it. " +
     "Use get_profile to show their profile and setup_profile to change it. Payers not on the known list can be added: confirm " +
-    "the spelling first, and never use a client's name as a payer (private-pay clients go under Cash). Refer to the therapist " +
+    "the spelling first, and never use a client's name as a payer (private-pay clients go under Cash). To fix a mistake use rename_payer, delete_rates or delete_month_counts, previewing first. Refer to the therapist " +
     "with they/them unless they tell you their pronouns.",
 });
 

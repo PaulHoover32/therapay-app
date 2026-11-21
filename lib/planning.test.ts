@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { goalNumbers, rateCards, resolveGoalTarget } from "@/lib/planning";
-import { resolvePayer } from "@/lib/payers";
+import { exactName, planRename, resolvePayer, scrubRaw } from "@/lib/payers";
 import { splitDuplicates } from "@/lib/imports";
 
 describe("resolveGoalTarget", () => {
@@ -80,5 +80,52 @@ describe("resolvePayer", () => {
     for (const bad of ["", "   ", "x".repeat(61), "12345", "<script>", "Payer_12"]) {
       expect(resolvePayer(bad, names)).toHaveProperty("error");
     }
+  });
+});
+
+describe("planRename", () => {
+  const row = (id: string, payer: string, platform: string, key: string) => ({ id, payer, platform, key });
+
+  it("moves payer and platform rows and leaves others alone", () => {
+    const plan = planRename([row("1", "Aetnaa", "", "a"), row("2", "Cigna", "Aetnaa", "a"), row("3", "Cigna", "", "a")], "Aetnaa", "Aetna");
+    expect(plan.moved).toBe(2);
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.updates).toEqual([
+      { payer: "Aetna", platform: "", ids: ["1"] },
+      { payer: "Cigna", platform: "Aetna", ids: ["2"] },
+    ]);
+  });
+  it("reports a conflict when the target already has that key", () => {
+    const plan = planRename([row("1", "Aetnaa", "", "90837|2026-01"), row("2", "Aetna", "", "90837|2026-01"), row("3", "Aetnaa", "", "90834|2026-01")], "Aetnaa", "Aetna");
+    expect(plan.conflicts).toEqual(["90837|2026-01"]);
+  });
+  it("makes a row direct when payer and platform become the same", () => {
+    const plan = planRename([row("1", "Growth", "Grow Therapy", "a")], "Growth", "Grow Therapy");
+    expect(plan.updates).toEqual([{ payer: "Grow Therapy", platform: "", ids: ["1"] }]);
+  });
+  it("finds a conflict created by collapsing to direct", () => {
+    const plan = planRename([row("1", "Growth", "Grow Therapy", "a"), row("2", "Grow Therapy", "", "a")], "Growth", "Grow Therapy");
+    expect(plan.conflicts).toEqual(["a"]);
+  });
+  it("finds two moved rows landing on one key", () => {
+    const plan = planRename([row("1", "X", "Y", "a"), row("2", "Y", "X", "a")], "X", "Y");
+    expect(plan.conflicts).toEqual(["a"]);
+  });
+});
+
+describe("scrubRaw", () => {
+  it("replaces the old name in any field, ignoring case", () => {
+    expect(scrubRaw({ payer: "jane doe", amount: 50 }, "Jane Doe", "Cash")).toEqual({ payer: "Cash", amount: 50 });
+  });
+  it("returns null when there's nothing to change", () => {
+    expect(scrubRaw({ payer: "Aetna" }, "Jane Doe", "Cash")).toBeNull();
+    expect(scrubRaw(null, "Jane Doe", "Cash")).toBeNull();
+  });
+});
+
+describe("exactName", () => {
+  it("never falls back to a first-word match", () => {
+    expect(exactName("aetna", ["Aetna"])).toBe("Aetna");
+    expect(exactName("Grow", ["Grow Therapy"])).toBeNull();
   });
 });
